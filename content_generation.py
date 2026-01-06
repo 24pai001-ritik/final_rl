@@ -36,37 +36,9 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 class ContentGenerator:
     """Handles caption and image generation using AI models."""
 
-    def _create_logo_placement_prompt(self, content: str, position: str) -> str:
+    def _create_logo_placement_prompt(self) -> str:
         """Create AI prompt for logo placement"""
-        position_descriptions = {
-            "top_left": "top-left corner",
-            "top_right": "top-right corner",
-            "bottom_left": "bottom-left corner",
-            "bottom_right": "bottom-right corner"
-        }
-        position_desc = position_descriptions.get(position, "bottom-right corner")
-
-        return f"""Add the logo from the second image to the first image at the {position_desc}.
-
-CRITICAL BACKGROUND REMOVAL INSTRUCTIONS:
-- Extract ONLY the logo elements from the second image
-- REMOVE ALL WHITE BACKGROUNDS from the logo
-- REMOVE ALL COLORED BACKGROUNDS from the logo
-- REMOVE ALL SOLID BACKGROUNDS from the logo
-- The logo must be COMPLETELY TRANSPARENT except for the actual logo elements
-- NO white rectangles, circles, or shapes should be visible
-- NO background colors should remain
-- The logo should have ZERO background
-
-STRICT PLACEMENT INSTRUCTIONS:
-- Place the logo at the {position_desc} of the first image
-- Do NOT add any text, effects, or creative elements
-- Do NOT modify the original image content
-- Do NOT add shadows, borders, or styling
-- Do NOT add any background to the logo
-- Just add the transparent logo, nothing else
-
-MANDATORY: The logo must be placed as a transparent overlay with absolutely no background color or shape."""
+        return "add this logo to the bottom right of the generated image, dont change the image in any way. Dont create inappropriate images."
 
     def __init__(self):
         """Initialize the content generator with API clients."""
@@ -232,14 +204,13 @@ MANDATORY: The logo must be placed as a transparent overlay with absolutely no b
             print(f"❌ {error_msg}")
             raise RuntimeError(error_msg)
 
-    def generate_image_with_logo(self, image_prompt: str, logo_url: str, logo_position: str = "bottom_right") -> str:
+    def generate_image_with_logo(self, image_prompt: str, logo_url: str) -> str:
         """
         Generate an image with logo overlay using Gemini API.
 
         Args:
             image_prompt: The prompt to generate the base image from
             logo_url: URL of the logo image to overlay
-            logo_position: Position for logo placement (bottom_right, top_left, etc.)
 
         Returns:
             Base64 encoded image data URL or public URL
@@ -249,7 +220,7 @@ MANDATORY: The logo must be placed as a transparent overlay with absolutely no b
 
         try:
             # Create the combined prompt for image generation with logo
-            logo_placement_prompt = self._create_logo_placement_prompt(image_prompt, logo_position)
+            logo_placement_prompt = self._create_logo_placement_prompt()
 
             # For Gemini, we need to provide both images (base image content + logo)
             # The prompt should instruct to generate the base image and then overlay the logo
