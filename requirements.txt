@@ -1,0 +1,9 @@
+supabase>=2.0.0
+python-dotenv>=1.0.0
+numpy>=1.21.0
+google-genai
+langchain-openai
+langchain-core
+requests
+pytz
+cryptography>=3.4.0
