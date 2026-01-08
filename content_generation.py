@@ -36,10 +36,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 class ContentGenerator:
     """Handles caption and image generation using AI models."""
 
-    def _create_logo_placement_prompt(self) -> str:
-        """Create AI prompt for logo placement"""
-        return "add this logo to the bottom right of the generated image, dont change the image in any way. Dont create inappropriate images."
-
     def __init__(self):
         """Initialize the content generator with API clients."""
         self.openai_client = None
@@ -117,9 +113,6 @@ class ContentGenerator:
         if not self.gemini_client:
             raise ValueError("Gemini API key not configured")
 
-        # Warn if {{CAPTION}} placeholder is found (should be replaced before calling this)
-        if "{{CAPTION}}" in image_prompt:
-            print("⚠️  WARNING: {{CAPTION}} placeholder found in image prompt. Use generate_content() instead of generate_image() directly.")
 
         try:
             if USE_NEW_PACKAGE:
@@ -204,41 +197,6 @@ class ContentGenerator:
             print(f"❌ {error_msg}")
             raise RuntimeError(error_msg)
 
-    def generate_image_with_logo(self, image_prompt: str, logo_url: str) -> str:
-        """
-        Generate an image with logo overlay using Gemini API.
-
-        Args:
-            image_prompt: The prompt to generate the base image from
-            logo_url: URL of the logo image to overlay
-
-        Returns:
-            Base64 encoded image data URL or public URL
-        """
-        if not self.gemini_client:
-            raise ValueError("Gemini API key not configured")
-
-        try:
-            # Create the combined prompt for image generation with logo
-            logo_placement_prompt = self._create_logo_placement_prompt()
-
-            # For Gemini, we need to provide both images (base image content + logo)
-            # The prompt should instruct to generate the base image and then overlay the logo
-            combined_prompt = f"""{image_prompt}
-
-            After generating the above image, overlay the logo from this URL: {logo_url}
-
-            {logo_placement_prompt}"""
-
-            # Use the existing generate_image method with the combined prompt
-            # Note: This assumes Gemini can handle logo URLs in prompts
-            # For more reliable logo placement, we might need to fetch and provide both images
-            return self.generate_image(combined_prompt)
-
-        except Exception as e:
-            error_msg = f"Image generation with logo failed: {str(e)}"
-            print(f"❌ {error_msg}")
-            raise RuntimeError(error_msg)
 
     def generate_content(self, caption_prompt: str, image_prompt: str, business_context: dict = None) -> Dict[str, Any]:
         """
@@ -255,24 +213,13 @@ class ContentGenerator:
         try:
             caption = self.generate_caption(caption_prompt)
 
-            # Replace {{CAPTION}} placeholder in image_prompt with actual generated caption
-            if caption and "{{CAPTION}}" in image_prompt:
-                image_prompt = image_prompt.replace("{{CAPTION}}", caption)
-                print(f"🔄 Replaced {{CAPTION}} placeholder in image prompt")
-
             # Format and append structured business context to image prompt if provided
             if business_context:
                 formatted_context = format_business_context(business_context)
                 image_prompt += f"\n\nBusiness Context: \n\n{formatted_context}"
                 print(f"📋 Appended structured business context to image prompt")
 
-            # Check if logo should be added to the image
-            logo_url = business_context.get("logo_url") if business_context else None
-            if logo_url:
-                image_url = self.generate_image_with_logo(image_prompt, logo_url)
-                print(f"🏷️ Generated image with logo overlay")
-            else:
-                image_url = self.generate_image(image_prompt)
+            image_url = self.generate_image(image_prompt)
 
             return {
                 "caption": caption,

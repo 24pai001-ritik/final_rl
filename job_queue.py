@@ -121,10 +121,10 @@ def get_action_and_context_from_db(post_id: str, platform: str, profile_id: str)
         # Reconstruct action dict
         action = {
             "HOOK_TYPE": action_row.get("hook_type"),
-            "LENGTH": action_row.get("hook_length"),
+            "INFORMATION_DEPTH": action_row.get("information_depth"),
             "TONE": action_row.get("tone"),
             "CREATIVITY": action_row.get("creativity"),
-            "TEXT_IN_IMAGE": action_row.get("text_in_image"),
+            "COMPOSITION_STYLE": action_row.get("composition_style"),
             "VISUAL_STYLE": action_row.get("visual_style")
         }
 

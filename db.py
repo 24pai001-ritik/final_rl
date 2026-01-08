@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 from datetime import datetime, timedelta, timezone
 import pytz
+from typing import List
 
 # Load environment variables from .env file
 load_dotenv()
@@ -229,6 +230,36 @@ def mark_post_as_posted(post_id, media_id=None):
         print(f"❌ Error marking post {post_id} as posted: {e}")
         raise
 
+
+# --------------------------------------------------
+# Recent topics
+# --------------------------------------------------    
+def recent_topics(business_id: str, limit: int = 10) -> List[str]:
+    """
+    Fetch the most recent topics from post_contents table for a specific business.
+    
+    Args:
+        business_id: The business/profile ID to get topics for
+        limit: Number of recent topics to fetch (default: 10)
+    
+    Returns:
+        List of recent topic strings, ordered by most recent first
+    """
+    try:
+        res = supabase.table("post_contents").select("topic").eq("business_id", business_id).order("created_at", desc=True).limit(limit).execute()
+        
+        if res.data:
+            # Extract topics and filter out None/empty values
+            topics = [row["topic"] for row in res.data if row.get("topic")]
+            return topics
+        else:
+            return []
+            
+    except Exception as e:
+        print(f"Error fetching recent topics for business {business_id}: {e}")
+        return []
+
+
 def schedule_post(post_id):
     """
     Mark a post as scheduled
@@ -322,10 +353,10 @@ def insert_action(post_id, platform, context, action):
             "post_id": post_id,
             "platform": platform,
             "hook_type": action.get("HOOK_TYPE"),
-            "hook_length": action.get("LENGTH"),  # Changed from LENGTH to hook_length
+            "information_depth": action.get("INFORMATION_DEPTH"),  # Changed from LENGTH to hook_length
             "tone": action.get("TONE"),
             "creativity": action.get("CREATIVITY"),
-            "text_in_image": action.get("TEXT_IN_IMAGE"),
+            "composition_style": action.get("COMPOSITION_STYLE"),
             "visual_style": action.get("VISUAL_STYLE"),
             "time_bucket": context.get("time_bucket"),
             "day_of_week": context.get("day_of_week"),
@@ -420,15 +451,15 @@ def get_profile_embedding(profile_id):
     """Retrieve profile embedding from profiles table"""
     try:
         res = supabase.table("profiles") \
-            .select("profile_embedding") \
+            .select("user_context_embedding") \
             .eq("id", profile_id) \
             .execute()
 
         if res.data and len(res.data) > 0:
             row = res.data[0]
-            if "profile_embedding" in row and row["profile_embedding"] is not None:
-                # profile_embedding can be returned as a list/array or string from Supabase
-                embedding_data = row["profile_embedding"]
+            if "user_context_embedding" in row and row["user_context_embedding"] is not None:
+                # user_context_embedding can be returned as a list/array or string from Supabase
+                embedding_data = row["user_context_embedding"]
 
                 if isinstance(embedding_data, list):
                     return np.array(embedding_data, dtype=np.float32)

@@ -96,7 +96,8 @@ def run_one_post(BUSINESS_ID, platform, time=None, day_of_week=None):
     topic_data = generate_topic(
     business_context=str(profile_data),
     platform=platform,
-    date=date)
+    date=date,
+    business_id=BUSINESS_ID)
     
     topic_text = topic_data["topic"]
 
@@ -150,7 +151,7 @@ def run_one_post(BUSINESS_ID, platform, time=None, day_of_week=None):
         f"Create an image with {action['VISUAL_STYLE']} style, {action['TONE']} tone, {action['CREATIVITY']} creativity level.The topic is {topic_text}. Make it engaging for {platform}.Do not include caption in the image  directly.just learn from the caption and generate the image.")
 
     caption_prompt = result.get("caption_prompt",
-        f"Write a {action['TONE']} caption in {action['LENGTH']} length with {action['CREATIVITY']} creativity level. The topic is {topic_text}. Make it suitable for {platform}.")
+        f"Write a {action['TONE']} caption in {action['INFORMATION_DEPTH']} length with {action['CREATIVITY']} creativity level. The topic is {topic_text}. Make it suitable for {platform}.")
 
     print("🎨 Generating caption and image content...")
     content_result = generate_content(caption_prompt, image_prompt, profile_data)
@@ -159,10 +160,6 @@ def run_one_post(BUSINESS_ID, platform, time=None, day_of_week=None):
         generated_caption = content_result["caption"]
         generated_image_url = content_result["image_url"]
 
-        # Replace {{CAPTION}} placeholder in image_prompt with actual generated caption
-        if generated_caption and "{{CAPTION}}" in image_prompt:
-            image_prompt = image_prompt.replace("{{CAPTION}}", generated_caption)
-            print("🔄 Updated image prompt with generated caption")
 
         print("✅ Content generated successfully and stored")
         print(f"📝 Caption: {generated_caption[:100]}...")

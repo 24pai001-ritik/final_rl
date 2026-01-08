@@ -1,4 +1,6 @@
 #prompt_template.py
+from db import recent_topics
+
 TOPIC_GENERATOR = """You are an expert social media strategist for businesses.
 
 My business context is the following JSON-like data (do not parse it as code, just read the values):
@@ -19,6 +21,9 @@ Output strictly in this format and nothing else:
 
 - NOT include political symbols, themes, metaphors, or indirect references of any kind
 - NOT include negative, harmful, offensive content
+
+These are the topics that we have posted recently:
+{{RECENT_TOPICS}}
 """
 
 
@@ -36,7 +41,7 @@ You must ONLY generate the prompts that will later be sent to those models.
 IMPORTANT ORDERING RULE:
 • The caption is generated FIRST
 • The image prompt MUST use BOTH the generated caption AND the business context as references
-• The image prompt MUST reference the caption using the placeholder {{CAPTION}}
+• Create a standalone image prompt that works independently
 
 ────────────────────────────────
 INPUTS (ONE VALUE EACH, ALWAYS PROVIDED)
@@ -47,48 +52,205 @@ business context  : {{BUSINESS_CONTEXT}}
 Topic : {{topic_text}}
 
 Hook type: {{HOOK_TYPE}}
-Length : {{LENGTH}}
+INFORMATION_DEPTH : {{INFORMATION_DEPTH}}
 Tone: {{TONE}}
 Creativity : {{CREATIVITY}}
 
-Text in image : {{TEXT_IN_IMAGE}}
+Text in image : {{COMPOSITION_STYLE}}
 Visual style : {{VISUAL_STYLE}}
 
 ────────────────────────────────
 CREATIVE INTERPRETATION (STRICT)
 ────────────────────────────────
-• HOOK TYPE
-  - question hook → opens with a clear, thought-provoking question that invites reflection or response
-  - relatable hook → highlights a common, everyday experience or pain point the audience instantly connects with
-  - trendy hook → references a widely recognized, brand-safe cultural or social trend without naming platforms, memes, or political topics
-  - curiosity gap hook → withholds a key detail to spark intrigue and compel the audience to read further
+• HOOK TYPE:
+question – Opens with a direct question to trigger curiosity and mental engagement.
 
-• LENGTH
-  - short → punchy, minimal, scroll-stopping
-  - medium → concise but slightly explanatory
+bold_claim – States a strong, confident assertion that challenges assumptions.
 
-• TONE
-  - casual → friendly, conversational
-  - formal → professional, composed
-  - humorous → light, witty, brand-safe
-  - educational → clear, informative, structured
+curiosity_gap – Hints at valuable information while intentionally withholding the key detail.
 
-• CREATIVITY
-  - safe → literal, conservative, low-risk
-  - balanced → clever but controlled
-  - experimental → bold phrasing, novel metaphors, still brand-safe
+relatable_pain – Highlights a common frustration the audience personally experiences.
 
-TEXT_IN_IMAGE ENFORCEMENT (NON-NEGOTIABLE):
+problem_solution – Presents a clear problem followed immediately by its solution.
 
-- If {{TEXT_IN_IMAGE}} = "text in image":
-    • You MUST include a short headline in the image
-    • The headline must be 2–5 words
-    • The headline must be derived from the caption’s core idea
-    • Example format: “Smarter Marketing”
-- If {{TEXT_IN_IMAGE}} = "no text in image":
-    • The image MUST contain zero written words
+before_after – Contrasts the situation before and after a change or action.
 
-If this rule is violated, the image_prompt is INVALID.
+transformation – Shows a meaningful improvement journey over time.
+
+surprising_fact – Uses an unexpected or counter-assumption fact to grab attention.
+
+social_proof – Leverages others’ behavior, results, or validation to build trust.
+
+authority_expert – Positions the content as coming from expertise or proven knowledge.
+
+aspirational_vision – Paints a desirable future the audience wants to reach.
+
+emotional_moment – Taps into a strong human emotion like pride, fear, or joy.
+
+pattern_interrupt – Breaks familiar scrolling patterns with an unusual angle or format.
+
+visual_metaphor – Explains an idea using a strong visual or symbolic comparison.
+
+contrast_comparison – Puts two opposing ideas side-by-side to highlight difference.
+
+minimal_message – Uses extreme simplicity to force focus on one core idea.
+
+trend_reference – Anchors the hook to a current, recognizable cultural or industry trend.
+
+practical_tip – Promises a clear, immediately usable piece of advice.
+
+myth_busting – Challenges a widely believed but incorrect assumption.
+
+counter_intuitive_take – Delivers an insight that feels wrong at first but makes sense after.
+
+
+
+• INFORMATION_DEPTH:
+
+one_liner – Delivers a single sharp idea in one concise sentence.
+
+snackable – Short, easy-to-consume content designed for fast scrolling.
+
+balanced – Mixes brevity and explanation without feeling heavy or shallow.
+
+value_dense – Packs multiple useful insights into minimal space.
+
+deep_dive – Explores a topic thoroughly with layered explanation.
+
+story_arc – Communicates the message through a beginning–middle–end narrative flow.
+
+visual_dominant – Relies primarily on visuals, with text playing a supporting role.
+
+• TONE:
+calm – Gentle, soothing, and low-intensity communication.
+
+confident – Self-assured and decisive without being aggressive.
+
+professional – Formal, polished, and business-appropriate.
+
+friendly – Warm, approachable, and conversational.
+
+playful – Light-hearted and fun with a casual feel.
+
+serious – Direct and focused with no humor or fluff.
+
+educational – Designed to teach or explain clearly.
+
+authoritative – Speaks with expertise and credibility.
+
+empathetic – Acknowledges emotions and shows understanding.
+
+inspirational – Encourages positive thinking and growth.
+
+motivational – Pushes the audience toward action or improvement.
+
+premium – Feels exclusive, refined, and high-value.
+
+bold – Strong, assertive tone that demands attention.
+
+warm – Emotionally inviting and comforting.
+
+cool – Emotionally neutral, composed, and detached.
+
+modern – Contemporary, current, and trend-aware.
+
+timeless – Classic tone that avoids trends and dates slowly.
+
+aspirational – Appeals to who the audience wants to become.
+
+rebellious – Challenges norms and breaks expectations.
+
+trust_reassuring – Builds safety, reliability, and confidence.
+
+
+
+
+• CREATIVITY LEVEL:
+ultra_safe – Extremely conservative and low-risk execution.
+
+safe – Familiar and proven approach with minimal experimentation.
+
+balanced – Mixes creativity with reliability and brand safety.
+
+bold – Confident, attention-grabbing ideas with calculated risk.
+
+experimental – Tests unconventional ideas while staying brand-aware.
+
+highly_experimental – Pushes boundaries with high novelty and risk.
+
+
+
+• VISUAL_STYLE:
+
+minimal_clean_typography – Uses simple typography and whitespace to convey clarity.
+
+modern_corporate_b2b – Polished, structured visuals suited for professional audiences.
+
+luxury_editorial – High-end, refined visuals inspired by premium magazines.
+
+lifestyle_photography – Depicts real-life moments aligned with audience aspirations.
+
+product_focused_commercial – Highlights the product clearly with sales-driven framing.
+
+flat_illustration – Uses 2D, flat graphics with minimal depth or realism.
+
+isometric_explainer – Uses isometric visuals to explain systems or processes clearly.
+
+high_impact_color_blocking – Uses bold color sections to create strong visual contrast.
+
+retro_vintage – Evokes nostalgia through classic colors, textures, and styling.
+
+futuristic_tech_dark – Dark, high-tech visuals suggesting innovation and the future.
+
+glassmorphism_ui – Uses translucent, frosted-glass UI elements with soft depth.
+
+abstract_gradients – Relies on flowing gradients and abstract color transitions.
+
+infographic_data_driven – Visualizes information using charts, icons, and structure.
+
+quote_card_typography – Centers the design around a strong textual quote.
+
+meme_style_social – Casual, internet-native visuals optimized for relatability.
+
+magazine_editorial – Layout-driven design with strong hierarchy and photography.
+
+cinematic_photography – Dramatic lighting and framing inspired by film visuals.
+
+bold_geometric – Uses strong geometric shapes for visual impact and structure.
+
+moody_atmospheric – Creates emotion through shadows, tones, and subtle lighting.
+
+clean_tech – Minimal, sharp visuals associated with modern technology brands.
+
+hand_drawn_sketch – Illustrations that feel imperfect, human, and personal.
+
+neon_cyberpunk – High-contrast neon colors with futuristic urban energy.
+
+experimental_art – Breaks conventional design rules for artistic expression.
+
+brand_signature – Strongly reflects the brand’s unique, recognizable visual identity.
+
+COMPOSITION_STYLE ENFORCEMENT (NON-NEGOTIABLE):
+
+center_focused – Places the primary subject directly at the center for immediate attention.
+
+rule_of_thirds – Positions key elements along thirds to create natural visual balance.
+
+symmetrical_clean – Uses mirrored alignment for a structured, orderly look.
+
+asymmetrical_balance – Balances uneven elements to create dynamic visual interest.
+
+layered_depth – Adds foreground, midground, and background to create depth.
+
+framed_subject – Uses surrounding elements to visually frame the main subject.
+
+negative_space_heavy – Leaves large empty areas to emphasize the core subject.
+
+full_bleed_edge_to_edge – Extends visuals to all edges with no margins or padding.
+
+collage_style – Combines multiple visual elements into a single cohesive layout.
+
+If these rules are violated, the prompts become invalid.
 
 
 ────────────────────────────────
@@ -124,13 +286,15 @@ The image_prompt MUST instruct the model to:
   • Use Secondary Color as accent/complementary color
   • Ensure color scheme aligns with brand identity
 - Translate the intent, emotion, and message of {{CAPTION}} into a visual concept
-- Respect {{TEXT_IN_IMAGE}} rules strictly
+- Respect {{COMPOSITION_STYLE}} rules strictly
 - Align with {{VISUAL_STYLE}}
 - NOT repeat the full caption verbatim inside the image
 - NOT introduce concepts, symbols, or claims that are not supported by {{CAPTION}} or {{BUSINESS_CONTEXT}}
 - NOT visually depict business details unless clearly implied by {{CAPTION}}
-- Do NOT output instructions like "without text" unless {{TEXT_IN_IMAGE}} explicitly requires it
+- Do NOT output instructions like "without text" unless {{COMPOSITION_STYLE}} explicitly requires it
 - If the image could apply to a generic business, it is INVALID
+- DO NOT INCLUDE HASHTAGS IN THE IMAGE
+- THE GENERATED IMAGE SHOULD NOT CONTAIN ANY TYPE OF NUDITY OR ANY OTHER INAPPROPRIATE CONTENT(even for humanoid AI entities or digital avatars)
 
 ────────────────────────────────
 OUTPUT REQUIREMENTS (NON-NEGOTIABLE)
@@ -184,9 +348,9 @@ You must ONLY generate the prompts that will later be sent to those models.
 
 IMPORTANT ORDERING RULE:
 • The caption is generated FIRST
-• The image prompt MUST use BOTH the generated caption AND the business context as references
-• The image prompt MUST reference the caption using the placeholder {{CAPTION}}
-• The caption is considered FINAL and HARDCODED when used inside the image prompt
+• The image prompt uses the business context and topic as references
+• Create a standalone image prompt that works independently of any caption
+• Focus on visual elements that complement the content theme
 
 ────────────────────────────────
 INPUTS (ONE VALUE EACH, ALWAYS PROVIDED)
@@ -197,11 +361,11 @@ business context  : {{BUSINESS_CONTEXT}}
 Topic : {{topic_text}}
 
 Hook type: {{HOOK_TYPE}}
-Length : {{LENGTH}}
+INFORMATION_DEPTH : {{INFORMATION_DEPTH}}
 Tone: {{TONE}}
 Creativity : {{CREATIVITY}}
 
-Text in image : {{TEXT_IN_IMAGE}}
+Text in image : {{COMPOSITION_STYLE}}
 Visual style : {{VISUAL_STYLE}}
 
 Selected Style : {selected_style}
@@ -227,7 +391,7 @@ CONTENT SAFETY CONSTRAINT
 CREATIVE INTERPRETATION (STRICT)
 ────────────────────────────────
 
-• LENGTH
+• INFORMATION_DEPTH
   - short → punchy, minimal, scroll-stopping
   - medium → concise but slightly explanatory
 
@@ -242,7 +406,7 @@ CREATIVE INTERPRETATION (STRICT)
   - balanced → clever but controlled
   - experimental → bold phrasing, novel metaphors, still brand-safe
 
-• TEXT_IN_IMAGE
+• COMPOSITION_STYLE
   - "text in image" → include ONLY a short headline-style phrase
   - "no text in image" → visual-only, no written words
 
@@ -280,7 +444,7 @@ The image_prompt MUST instruct the model to:
   • Use Secondary Color as accent/complementary color
   • Ensure color scheme aligns with brand identity
 - Translate the intent, emotion, and message of {{CAPTION}} into a visual concept
-- Respect {{TEXT_IN_IMAGE}} rules strictly
+- Respect {{COMPOSITION_STYLE}} rules strictly
 - Align with {{VISUAL_STYLE}} and {selected_style}
 - NOT repeat the full caption verbatim inside the image
 - NOT introduce concepts, symbols, or claims that are not supported by {{CAPTION}} or {{BUSINESS_CONTEXT}}

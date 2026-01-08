@@ -8,18 +8,111 @@ from collections import defaultdict
 # ---------------- ACTION SPACE ----------------
 
 ACTION_SPACE = {
+
     "HOOK_TYPE": [
-        "question hook",
-        "bold claim hook",
-        "relatable pain hook",
-        "trendy topic hook",
-        "curiosity gap hook"
+        "question",
+        "bold_claim",
+        "curiosity_gap",
+        "relatable_pain",
+        "problem_solution",
+        "before_after",
+        "transformation",
+        "surprising_fact",
+        "social_proof",
+        "authority_expert",
+        "aspirational_vision",
+        "emotional_moment",
+        "pattern_interrupt",
+        "visual_metaphor",
+        "contrast_comparison",
+        "minimal_message",
+        "trend_reference",
+        "practical_tip",
+        "myth_busting",
+        "counter_intuitive_take"
     ],
-    "LENGTH": ["short", "medium"],
-    "TONE": ["casual", "formal", "humourous", "educational"],
-    "CREATIVITY": ["safe", "balanced", "experimental"],
-    "TEXT_IN_IMAGE": ["text in image", "no text in image"],
-    "VISUAL_STYLE": ["abstract", "human figure"]
+
+    "INFORMATION_DEPTH": [
+        "one_liner",
+        "snackable",
+        "balanced",
+        "value_dense",
+        "deep_dive",
+        "story_arc",
+        "visual_dominant"
+    ],
+
+    "TONE": [
+        "calm",
+        "confident",
+        "professional",
+        "friendly",
+        "playful",
+        "serious",
+        "educational",
+        "authoritative",
+        "empathetic",
+        "inspirational",
+        "motivational",
+        "premium",
+        "bold",
+        "warm",
+        "cool",
+        "modern",
+        "timeless",
+        "aspirational",
+        "rebellious",
+        "trust_reassuring"
+    ],
+
+    "CREATIVITY": [
+        "ultra_safe",
+        "safe",
+        "balanced",
+        "bold",
+        "experimental",
+        "highly_experimental"
+    ],
+
+    "VISUAL_STYLE": [
+        "minimal_clean_typography",
+        "modern_corporate_b2b",
+        "luxury_editorial",
+        "lifestyle_photography",
+        "product_focused_commercial",
+        "flat_illustration",
+        "isometric_explainer",
+        "high_impact_color_blocking",
+        "retro_vintage",
+        "futuristic_tech_dark",
+        "glassmorphism_ui",
+        "abstract_gradients",
+        "infographic_data_driven",
+        "quote_card_typography",
+        "meme_style_social",
+        "magazine_editorial",
+        "cinematic_photography",
+        "bold_geometric",
+        "moody_atmospheric",
+        "clean_tech",
+        "hand_drawn_sketch",
+        "neon_cyberpunk",
+        "experimental_art",
+        "brand_signature"
+    ],
+
+    "COMPOSITION_STYLE": [
+        "center_focused",
+        "rule_of_thirds",
+        "symmetrical_clean",
+        "asymmetrical_balance",
+        "layered_depth",
+        "framed_subject",
+        "negative_space_heavy",
+        "full_bleed_edge_to_edge",
+        "collage_style"
+    ]
+
 }
 
 # ---------------- THETA STORE ----------------

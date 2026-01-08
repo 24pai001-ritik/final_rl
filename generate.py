@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import numpy as np
 from sklearn.decomposition import PCA
+from db import recent_topics
 
 
 
@@ -109,7 +110,8 @@ def call_grok(prompt: str) -> str | dict:
 def generate_topic(
     business_context: str,
     platform: str,
-    date: str
+    date: str,
+    business_id: str = None
 ) -> dict:
     """
     Generates a post topic using Grok.
@@ -124,12 +126,13 @@ def generate_topic(
     filled_prompt = filled_prompt.replace("{{BUSINESS_CONTEXT}}", business_context)
     filled_prompt = filled_prompt.replace("{{PLATFORM}}", platform)
     filled_prompt = filled_prompt.replace("{{DATE}}", date)
+    filled_prompt = filled_prompt.replace("{{RECENT_TOPICS}}", recent_topics(business_id))
 
     try:
         response = call_grok(filled_prompt)
         return {
-        "topic": response
-    }
+            "topic": response
+        }
 
     except Exception as e:
         print(f"Error generating topic: {e}")
