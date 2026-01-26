@@ -74,6 +74,7 @@ def calculate_platform_engagement(platform: str, metrics: dict) -> float:
 
 # ---------- PREFERENCES ----------
 
+
 def get_preference(platform, time_bucket, dimension, value):
     try:
         res = supabase.table("rl_preferences") \
@@ -90,6 +91,30 @@ def get_preference(platform, time_bucket, dimension, value):
     except Exception as e:
         print(f"Error getting preference for {platform}, {dimension}={value}: {e}")
         return 0.0
+
+
+def get_preferences_batch(platform, time_bucket) -> dict:
+    """
+    Fetch ALL preferences for a context in one go.
+    Returns: dict { (dimension, value): score }
+    """
+    try:
+        res = supabase.table("rl_preferences") \
+            .select("dimension, action_value, preference_score") \
+            .eq("platform", platform) \
+            .eq("time_bucket", time_bucket) \
+            .execute()
+
+        prefs = {}
+        if res.data:
+            for row in res.data:
+                key = (row["dimension"], row["action_value"])
+                prefs[key] = float(row["preference_score"])
+        return prefs
+
+    except Exception as e:
+        print(f"Error batch fetching preferences for {platform}: {e}")
+        return {}
 
 
 def update_preference(platform, time_bucket, dimension, value, delta):
@@ -125,7 +150,7 @@ def update_preference(platform, time_bucket, dimension, value, delta):
                     current_samples = int(row["num_samples"])
                     new_score = current_score + delta
 
-                    print(f"   📊 Existing preference: {current_score:.4f} → {new_score:.4f} (samples: {current_samples} → {current_samples + 1})")
+                    print(f"   Existing preference: {current_score:.4f} -> {new_score:.4f} (samples: {current_samples} -> {current_samples + 1})")
                     supabase.table("rl_preferences").update({
                         "preference_score": new_score,
                         "num_samples": current_samples + 1,
@@ -134,7 +159,7 @@ def update_preference(platform, time_bucket, dimension, value, delta):
                     return  # Success
             else:
                 # Insert new preference - use upsert for safety
-                print(f"   🆕 Creating new preference entry with score: {delta:.4f}")
+                print(f"   Creating new preference entry with score: {delta:.4f}")
                 try:
                     supabase.table("rl_preferences").upsert({
                         "platform": platform,
@@ -381,7 +406,7 @@ def insert_post_snapshot(post_id, platform, metrics, profile_id=None, timeslot_h
 
         # Prepare data according to schema
         snapshot_data = {
-            "profile_id": profile_id or "7648103e-81be-4fd9-b573-8e72e2fcbe5d",  # Default business ID
+            "profile_id": profile_id ",  # Default business ID
             "post_id": post_id,
             "platform": platform,
             "timeslot_hours": timeslot_hours,
@@ -659,7 +684,7 @@ def get_post_snapshots(profile_id: str, post_id: str, platform: str):
     return res.data
 def calculate_reward_from_snapshots(snapshots: list, platform: str, post_id: str = None) -> float:
     reward = 0.0
-    print(f"🔢 Calculating reward for {platform} with {len(snapshots)} snapshots")
+    print(f"Calculating reward for {platform} with {len(snapshots)} snapshots")
 
     # Check if post is deleted for penalty calculation
     deleted = False
@@ -682,9 +707,9 @@ def calculate_reward_from_snapshots(snapshots: list, platform: str, post_id: str
                         # Make current_time timezone-naive to match created_at
                         current_time = current_time.replace(tzinfo=None)
                         days_since_post = (current_time - created_at).days
-                        print(f"   🗑️  Post is deleted ({days_since_post} days ago), applying penalty")
+                        print(f"   Post is deleted ({days_since_post} days ago), applying penalty")
         except Exception as e:
-            print(f"   ⚠️  Could not check post deletion status: {e}")
+            print(f"   Could not check post deletion status: {e}")
 
     for snap in snapshots:
         t = snap["timeslot_hours"]
@@ -699,7 +724,7 @@ def calculate_reward_from_snapshots(snapshots: list, platform: str, post_id: str
         # Apply time-based weighting
         weighted_engagement = weight * engagement
         reward += weighted_engagement
-        print(f"   📊 {t}h snapshot: {engagement:.2f} engagement × {weight} weight = {weighted_engagement:.4f}")
+        print(f"   {t}h snapshot: {engagement:.2f} engagement x {weight} weight = {weighted_engagement:.4f}")
 
     # Apply normalization (log normalization with tanh bounding)
     followers = max(snapshots[0].get("follower_count", 1), 1) if snapshots else 1
@@ -717,22 +742,22 @@ def calculate_reward_from_snapshots(snapshots: list, platform: str, post_id: str
             # exponential decay penalty (stronger than before)
             penalty = 1.2 * math.exp(-days_since_post / 2.0)
 
-        print(f"   💥 Applying deletion penalty: -{penalty:.4f} (days_since_post: {days_since_post})")
+        print(f"   Applying deletion penalty: -{penalty:.4f} (days_since_post: {days_since_post})")
         final_reward -= penalty
 
         # Ensure reward doesn't go below -1
         final_reward = max(final_reward, -1.0)
 
-    print(f"   📈 Total reward: {reward:.4f}, Followers: {followers}, Raw score: {raw_score:.4f}, Final reward: {final_reward:.4f}")
+    print(f"   Total reward: {reward:.4f}, Followers: {followers}, Raw score: {raw_score:.4f}, Final reward: {final_reward:.4f}")
 
     return final_reward
 def fetch_or_calculate_reward(profile_id: str, post_id: str, platform: str):
-    print(f"🎯 Fetching/calculating reward for post {post_id} on {platform}")
+    print(f"Fetching/calculating reward for post {post_id} on {platform}")
     reward_row = get_post_reward(profile_id, post_id, platform)
 
     # Handle case where reward record doesn't exist yet
     if reward_row is None:
-        print(f"   📝 Reward record doesn't exist yet for {post_id}")
+        print(f"   Reward record doesn't exist yet for {post_id}")
         return {
             "status": "pending",
             "reward": None
@@ -741,7 +766,7 @@ def fetch_or_calculate_reward(profile_id: str, post_id: str, platform: str):
     # 1️⃣ Already calculated → return immediately
     if reward_row.get("reward_status") == "calculated":
         existing_reward = reward_row.get("reward_value")
-        print(f"   ✅ Reward already calculated: {existing_reward}")
+        print(f"   Reward already calculated: {existing_reward}")
         return {
             "status": "calculated",
             "reward": existing_reward
@@ -765,14 +790,14 @@ def fetch_or_calculate_reward(profile_id: str, post_id: str, platform: str):
 
                 current_dt = datetime.now(IST).replace(tzinfo=None)
                 if current_dt < eligible_dt:
-                    print(f"   ⏳ Reward not yet eligible (eligible at: {eligible_at})")
+                    print(f"   Reward not yet eligible (eligible at: {eligible_at})")
                     return {
                         "status": "pending",
                         "reward": None
                     }
             except (ValueError, AttributeError) as e:
                 # If parsing fails, assume it's not eligible
-                print(f"   ⏳ Could not parse eligible_at: {eligible_at} (error: {e})")
+                print(f"   Could not parse eligible_at: {eligible_at} (error: {e})")
                 return {
                     "status": "pending",
                     "reward": None
@@ -784,7 +809,7 @@ def fetch_or_calculate_reward(profile_id: str, post_id: str, platform: str):
 
     if not snapshots:
         # No snapshots available yet
-        print(f"   📊 No snapshots available yet for {post_id}")
+        print(f"   No snapshots available yet for {post_id}")
         return {
             "status": "pending",
             "reward": None
@@ -793,7 +818,7 @@ def fetch_or_calculate_reward(profile_id: str, post_id: str, platform: str):
     reward_value = calculate_reward_from_snapshots(snapshots, platform, post_id)
 
     try:
-        print(f"   💾 Updating reward record with calculated value: {reward_value}")
+        print(f"   Updating reward record with calculated value: {reward_value}")
         supabase.table("post_rewards").update({
             "reward_status": "calculated",
             "reward_value": reward_value,

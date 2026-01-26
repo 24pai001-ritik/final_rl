@@ -14,8 +14,6 @@ from sklearn.decomposition import PCA
 from db import recent_topics
 
 
-
-
 load_dotenv()
 
 
@@ -94,8 +92,8 @@ def call_grok(prompt: str) -> str | dict:
 
     content = response.json()["choices"][0]["message"]["content"]
 
-    # Prompt-generation → JSON
-    # Topic-generation → plain text
+    # Prompt-generation -> JSON
+    # Topic-generation -> plain text
     try:
         return json.loads(content)
     except Exception:
@@ -199,9 +197,9 @@ def generate_prompts(
     Single execution point between RL and LLMs.
     """
 
-    print(f"🤖 RL Context: Platform={platform}, Time={time}")
+    print(f"RL Context: Platform={platform}, Time={time}")
 
-    # 1️⃣ Build RL context (using your build_context)
+    # 1. Build RL context (using your build_context)
     context = build_context(
         business_embedding=business_embedding,
         topic_embedding=topic_embedding,
@@ -209,17 +207,17 @@ def generate_prompts(
         time=time
     )
 
-    # 2️⃣ RL decides creative controls
+    # 2. RL decides creative controls
     action, ctx_vec = select_action(context) 
     
-    print(f"🎯 RL Selected Action: {action}")
+    print(f"RL Selected Action: {action}")
     hook_type = action.get("HOOK_TYPE", "")
 
-    # 3️⃣ Merge inputs + RL action for placeholders
+    # 3. Merge inputs + RL action for placeholders
     merged = {**inputs, **action}
 
     # =====================================================
-    # 🔥 TRENDY → GROK
+    # TRENDY -> GROK
     # =====================================================
     if hook_type == "trendy topic hook":
         selected_style = classify_trend_style(
@@ -243,19 +241,19 @@ def generate_prompts(
                 v = ", ".join(v)
             filled_prompt = filled_prompt.replace(f"{{{{{k}}}}}", str(v))
 
-        print(f"📝 Sending to Grok (Trendy Topic): {filled_prompt[:200]}...")
+        print(f"Sending to Grok (Trendy Topic): {filled_prompt[:200]}...")
         llm_response = call_grok(filled_prompt)
 
         if not isinstance(llm_response, dict):
-            print("⚠️ Grok returned non-JSON output. Raw response:")
+            print("Grok returned non-JSON output. Raw response:")
             print(llm_response)
             raise ValueError("Invalid Grok response format")
 
         if "caption_prompt" not in llm_response or "image_prompt" not in llm_response:
             raise ValueError(f"Incomplete Grok response: {llm_response}")
 
-        print(f"📝 Generated Caption Prompt: {llm_response['caption_prompt']}\n")
-        print(f"📝 Generated Image Prompt: {llm_response['image_prompt']}\n")
+        print(f"Generated Caption Prompt: {llm_response['caption_prompt']}\n")
+        print(f"Generated Image Prompt: {llm_response['image_prompt']}\n")
 
         return {
             "mode": "trendy",
@@ -269,7 +267,7 @@ def generate_prompts(
 
 
     # =====================================================
-    # ✅ NON-TRENDY → GPT-4o MINI
+    # NON-TRENDY -> GPT-4o MINI
     # =====================================================
     filled_prompt = PROMPT_GENERATOR
     merged = {
@@ -287,10 +285,10 @@ def generate_prompts(
             v = ", ".join(v)
         filled_prompt = filled_prompt.replace(f"{{{{{k}}}}}", str(v))
 
-    print(f"📝 Sending to GPT-4o-mini (Standard)")
+    print(f"Sending to GPT-4o-mini (Standard)")
     llm_response = call_gpt_4o_mini(filled_prompt)
-    print(f"📝 Generated Caption Prompt: {llm_response['caption_prompt'][:180]}...")
-    print(f"📝 Generated Image Prompt: {llm_response['image_prompt'][:180]}...")
+    print(f"Generated Caption Prompt: {llm_response['caption_prompt'][:180]}...")
+    print(f"Generated Image Prompt: {llm_response['image_prompt'][:180]}...")
 
     return {
         "mode": "standard",

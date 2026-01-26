@@ -61,9 +61,9 @@ class ContentGenerator:
                 genai.configure(api_key=GEMINI_API_KEY)
                 try:
                     # Use the requested model for image generation
-                    self.gemini_client = genai.GenerativeModel('gemini-2.5-flash-image-preview')
+                    self.gemini_client = genai.GenerativeModel('gemini-3-flash-preview')
                 except Exception as e:
-                    print(f"Warning: Could not initialize gemini-2.5-flash-image-preview ({e}), trying fallback")
+                    print(f"Warning: Could not initialize gemini-3-flash-preview ({e}), trying fallback")
                     try:
                         self.gemini_client = genai.GenerativeModel('gemini-2.0-flash-exp-image-generation')
                     except Exception:
@@ -94,12 +94,12 @@ class ContentGenerator:
             if res.data and len(res.data) > 0:
                 logo_url = res.data[0].get("logo_url")
                 if logo_url:
-                    print(f"📥 Found logo URL for business {business_id}: {logo_url}")
+                    print(f"Found logo URL for business {business_id}: {logo_url}")
                     return logo_url
-            print(f"📭 No logo found for business {business_id}")
+            print(f"No logo found for business {business_id}")
             return None
         except Exception as e:
-            print(f"❌ Error fetching logo for business {business_id}: {e}")
+            print(f"Error fetching logo for business {business_id}: {e}")
             return None
 
     def generate_caption(self, caption_prompt: str) -> str:
@@ -150,14 +150,14 @@ class ContentGenerator:
         logo_image = None
         if final_logo_url:
             try:
-                print(f"📥 Downloading logo from: {final_logo_url}")
+                print(f"Downloading logo from: {final_logo_url}")
                 # Download logo image
                 response = requests.get(final_logo_url, timeout=10)
                 response.raise_for_status()
 
                 # Convert to PIL Image for Gemini
                 logo_image = Image.open(io.BytesIO(response.content))
-                print("✅ Logo downloaded and processed successfully")
+                print("Logo downloaded and processed successfully")
 
                 # Modify prompt to include logo placement instructions
                 logo_instructions = """
@@ -172,10 +172,10 @@ class ContentGenerator:
 
                 """
                 image_prompt += logo_instructions
-                print("🎨 Added logo placement instructions to prompt")
+                print("Added logo placement instructions to prompt")
 
             except Exception as e:
-                print(f"⚠️ Failed to download/process logo: {e}")
+                print(f"Failed to download/process logo: {e}")
                 logo_image = None
 
         try:
@@ -192,14 +192,14 @@ class ContentGenerator:
                     contents = image_prompt
 
                 response = self.gemini_client.models.generate_content(
-                    model='gemini-2.5-flash-image-preview',
+                    model='gemini-2.5-flash-image',
                     contents=contents
                 )
 
                 # Handle new package response format
                 if hasattr(response, 'candidates') and response.candidates:
                     candidate = response.candidates[0]
-                    if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                    if hasattr(candidate, 'content') and candidate.content and hasattr(candidate.content, 'parts') and candidate.content.parts:
                         image_data = None
                         for part in candidate.content.parts:
                             if hasattr(part, 'inline_data') and part.inline_data is not None:
@@ -276,7 +276,7 @@ class ContentGenerator:
         except Exception as e:
             # Raise clear error instead of returning placeholder
             error_msg = f"Image generation failed: {str(e)}"
-            print(f"❌ {error_msg}")
+            print(f"{error_msg}")
             raise RuntimeError(error_msg)
 
 
@@ -299,7 +299,7 @@ class ContentGenerator:
             if business_context:
                 formatted_context = format_business_context(business_context)
                 image_prompt += f"\n\nBusiness Context: \n\n{formatted_context}"
-                print(f"📋 Appended structured business context to image prompt")
+                print(f"Appended structured business context to image prompt")
 
             image_url = self.generate_image(image_prompt, logo_url, business_id)
 
@@ -386,7 +386,7 @@ def generate_content(caption_prompt: str, image_prompt: str, business_context: d
 
 def test_logo_overlay():
     """Test the logo overlay functionality"""
-    print("🧪 Testing Logo Overlay Functionality in ATSN_RL_FINAL")
+    print("Testing Logo Overlay Functionality in ATSN_RL_FINAL")
     print("=" * 60)
 
     # Test image prompt
@@ -398,20 +398,20 @@ def test_logo_overlay():
     generator = ContentGenerator()
 
     try:
-        print("1️⃣ Testing logo fetch from database...")
+        print("1. Testing logo fetch from database...")
         logo_url = generator.fetch_business_logo(test_business_id)
         if logo_url:
-            print(f"   ✅ Found logo: {logo_url}")
+            print(f"   Found logo: {logo_url}")
         else:
-            print("   ⚠️ No logo found, will use placeholder")
+            print("   No logo found, will use placeholder")
             logo_url = "https://picsum.photos/200/100?random=logo"
 
-        print("\n2️⃣ Generating image WITH logo overlay...")
+        print("\n2. Generating image WITH logo overlay...")
         image_url_with_logo = generator.generate_image(image_prompt, logo_url, test_business_id)
-        print(f"   ✅ Image with logo generated")
-        print(f"   📍 URL: {image_url_with_logo[:100]}...")
+        print(f"   Image with logo generated")
+        print(f"   URL: {image_url_with_logo[:100]}...")
 
-        print("\n3️⃣ Testing full content generation with logo...")
+        print("\n3. Testing full content generation with logo...")
         caption_prompt = "Write an engaging Instagram caption about productivity tips for entrepreneurs, including relevant hashtags."
 
         result_with_logo = generator.generate_content(
@@ -420,17 +420,17 @@ def test_logo_overlay():
             logo_url=logo_url,
             business_id=test_business_id
         )
-        print(f"   📝 Caption: {result_with_logo['caption'][:100]}...")
-        print(f"   🖼️ Image with logo: {result_with_logo['image_url'][:100]}...")
+        print(f"   Caption: {result_with_logo['caption'][:100]}...")
+        print(f"   Image with logo: {result_with_logo['image_url'][:100]}...")
 
-        print("\n🎉 Logo overlay functionality test completed!")
-        print("\n📋 Test Results:")
+        print("\nLogo overlay functionality test completed!")
+        print("\nTest Results:")
         print(f"   • Logo URL: {logo_url}")
         print(f"   • Image with logo: {image_url_with_logo}")
         print(f"   • Content with logo: {result_with_logo['image_url']}")
 
     except Exception as e:
-        print(f"❌ Test failed with error: {e}")
+        print(f"Test failed with error: {e}")
         import traceback
         traceback.print_exc()
 

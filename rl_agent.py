@@ -155,19 +155,21 @@ def select_action(context):
 
     ctx_vec = build_context_vector(context)
 
+    # BATCH FETCH: Get all preferences for this context in ONE call
+    all_prefs = db.get_preferences_batch(
+        context["platform"],
+        context["time_bucket"]
+    )
+    # Returns dict: { (dimension, value): score }
+
     action = {}
 
     for dim, values in ACTION_SPACE.items():
 
         scores = []
         for v in values:
-            # discrete preference
-            H = db.get_preference(
-                context["platform"],
-                context["time_bucket"],
-                dim,
-                v
-            )
+            # discrete preference (from batch)
+            H = all_prefs.get((dim, v), 0.0)
 
             # continuous contribution
             score = H + np.dot(theta[(dim, v)], ctx_vec)
@@ -178,19 +180,18 @@ def select_action(context):
 
     return action, ctx_vec
 
-
-# ---------------- LEARNING UPDATE ----------------
+    # ---------------- LEARNING UPDATE ----------------
 
 def update_rl(context, action, ctx_vec, reward, baseline,
               lr_discrete=0.05, lr_theta=0.01):
-    print(f"🧠 Updating RL: reward={reward:.4f}, baseline={baseline:.4f}, advantage={reward - baseline:.4f}")
+    print(f"Updating RL: reward={reward:.4f}, baseline={baseline:.4f}, advantage={reward - baseline:.4f}")
     ctx_vec = build_context_vector(context)
     advantage = reward - baseline
 
     for dim, val in action.items():
-        print(f"   🎯 Updating action dimension: {dim}={val}")
+        print(f"   Updating action dimension: {dim}={val}")
 
-        # 1️⃣ Discrete update (Supabase)
+        # 1. Discrete update (Supabase)
         db.update_preference(
             context["platform"],
             context["time_bucket"],
@@ -199,9 +200,9 @@ def update_rl(context, action, ctx_vec, reward, baseline,
             lr_discrete * advantage
         )
 
-        # 2️⃣ Continuous update (theta)
+        # 2. Continuous update (theta)
         theta_update = lr_theta * advantage * ctx_vec
         theta[(dim, val)] += theta_update
-        print(f"   📈 Theta update magnitude: {np.linalg.norm(theta_update):.6f}")
+        print(f"   Theta update magnitude: {np.linalg.norm(theta_update):.6f}")
 
 
