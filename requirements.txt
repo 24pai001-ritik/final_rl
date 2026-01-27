@@ -7,3 +7,4 @@ langchain-core
 requests
 pytz
 cryptography>=3.4.0
+scikit-learn>=1.0.0
