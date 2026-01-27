@@ -2,8 +2,12 @@ supabase>=2.0.0
 python-dotenv>=1.0.0
 numpy>=1.21.0
 google-genai
+google-generativeai
 langchain-openai
 langchain-core
 requests
+httpx
 pytz
 cryptography>=3.4.0
+Pillow>=10.0.0
+openai
