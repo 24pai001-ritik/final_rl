@@ -10,7 +10,6 @@ import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 import numpy as np
-from sklearn.decomposition import PCA
 from db import recent_topics
 
 
