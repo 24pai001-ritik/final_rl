@@ -13,14 +13,11 @@ Flow:
 """
 
 # Load environment variables
+# Load environment variables
 from dotenv import load_dotenv
+import os
 import sys
 import io
-from datetime import datetime, timedelta
-import uuid
-import time
-import logging
-import pytz
 
 # Force UTF-8 encoding for stdout/stderr to handle emojis on Windows
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
@@ -28,19 +25,39 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='repla
 
 load_dotenv()
 
+# from db import fetch_or_calculate_reward
+
+import uuid
+import time
+import random
+from datetime import datetime
+import numpy as np
+import pytz
+
 # Indian Standard Time (IST) - Asia/Kolkata
 IST = pytz.timezone("Asia/Kolkata")
+#from campaign import topic,date,time,platform
 
 import db
-from generate import generate_prompts, embed_topic, generate_topic, generate_reel_script, generate_post_script, generate_carousel_script, call_grok
+# from rl_agent import update_rl
+from generate import generate_prompts,embed_topic,generate_topic,generate_reel_script,generate_post_script,generate_carousel_script
+#from job_queue import queue_reward_calculation_job
 from content_generation import generate_content, generate_carousel_content
 from prompt_template import CAROUSEL_IMAGE_PROMPT_GENERATOR
 
-# Configure logging
+# Add imports
+import time
+from datetime import datetime, timedelta
+import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("main")
 
 logger.info(" main.py ENTRYPOINT reached")
+from datetime import datetime, timedelta
+import pytz
+import db
+
+IST = pytz.timezone("Asia/Kolkata")
 
 def schedule_next_content_generation(business_id):
     # Fetch preferred posting time
@@ -90,7 +107,7 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
     # Get user's scheduling preferences if not provided
     if time_bucket is None:
         scheduling_prefs = db.get_profile_scheduling_prefs(BUSINESS_ID)
-        time_bucket = scheduling_prefs["time_bucket"]
+        time_bucket = time_bucket or scheduling_prefs["time_bucket"]
 
     print(f"\nStarting new post cycle for {platform} at {time_bucket}")
     
@@ -134,13 +151,16 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
         topic_embedding,
         platform,
         time_bucket,
-        topic_text, profile_data,
+        topic_text,profile_data,
         business_context=profile_data,
     )
 
     # Extract values based on mode
     action = result["action"]
     context = result["context"]
+    ctx_vec = result["ctx_vec"]
+    mode = result["mode"]
+    prompt_text = result.get("grok_prompt") or result.get("prompt", "") or result.get("image_prompt", "")
 
     # ---------- 3. STORE RL ACTION ----------
     post_id = f"{platform}_{uuid.uuid4().hex[:8]}"
@@ -199,6 +219,9 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
         carousel_prompt_template = CAROUSEL_IMAGE_PROMPT_GENERATOR
         
         # Fill template with values
+        business_name = profile_data.get("business_name", "Business")
+        industries = profile_data.get("industries", [])
+        industries_str = ", ".join(industries) if isinstance(industries, list) else str(industries)
         city = profile_data.get("location_city", "")
         state = profile_data.get("location_state", "Gujarat")
         
@@ -215,6 +238,7 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
         filled_carousel_prompt = filled_carousel_prompt.replace("{{INFORMATION_DEPTH}}", action.get("INFORMATION_DEPTH", "balanced"))
         
         # Call Grok to generate 4 image prompts
+        from generate import call_grok
         try:
             carousel_prompts_response = call_grok(filled_carousel_prompt)
             
@@ -306,7 +330,7 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
         # ---------- POST FLOW: Generate image and caption (existing flow) ----------
         # Extract prompts based on mode (handle both trendy and standard modes)
         image_prompt = result.get("image_prompt",
-            f"Create an image with {action['VISUAL_STYLE']} style, {action['TONE']} tone, {action['CREATIVITY']} creativity level. The topic is {topic_text}. Make it engaging for {platform}. Do not include caption in the image directly. Just learn from the caption and generate the image.")
+            f"Create an image with {action['VISUAL_STYLE']} style, {action['TONE']} tone, {action['CREATIVITY']} creativity level.The topic is {topic_text}. Make it engaging for {platform}.Do not include caption in the image  directly.just learn from the caption and generate the image.")
 
         caption_prompt = result.get("caption_prompt",
             f"Write a {action['TONE']} caption in {action['INFORMATION_DEPTH']} length with {action['CREATIVITY']} creativity level. The topic is {topic_text}. Make it suitable for {platform}.")
@@ -351,6 +375,8 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
             platform=platform,
             business_id=BUSINESS_ID,
             topic=topic_text,
+            # business_context= profile_data["business_description"],
+            # business_aesthetic=profile_data["brand_voice"],
             image_prompt=image_prompt,
             caption_prompt=caption_prompt,
             generated_caption=generated_caption,
@@ -358,6 +384,9 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
             post_script=post_script,
             content_type=content_type
         )
+
+    # ---------- 5. QUEUE FOR SCHEDULING ----------
+
 
     # Create initial reward record for future calculation
     db.create_post_reward_record(BUSINESS_ID, post_id, platform, action_id)
@@ -429,6 +458,9 @@ if __name__ == "__main__":
                         print(f"Platform failed {platform}: {e}")
                         continue
 
+                # ✅ THIS IS THE CORRECT PLACE
+                
+        
                 schedule_next_content_generation(business_id)
                 print(f"Next content_generation scheduled for {business_id}")
 
