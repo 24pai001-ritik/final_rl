@@ -156,7 +156,10 @@ def get_action_and_context_from_db(
         "TONE": row.get("tone"),
         "CREATIVITY": row.get("creativity"),
         "TEXT_IN_IMAGE": row.get("text_in_image"),
-        "VISUAL_STYLE": row.get("visual_style")
+        "VISUAL_STYLE": row.get("visual_style"),
+        "CONTENT_TYPE": row.get("content_type"),  # New: post or reel
+        "INFORMATION_DEPTH": row.get("information_depth"),
+        "COMPOSITION_STYLE": row.get("composition_style")
     }
 
     business_embedding = db.get_profile_embedding_with_fallback(profile_id)

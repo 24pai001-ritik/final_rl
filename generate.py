@@ -1,7 +1,7 @@
 # generate.py
 
 from rl_agent import select_action
-from prompt_template import TOPIC_GENERATOR,PROMPT_GENERATOR, TRENDY_TOPIC_PROMPT, classify_trend_style
+from prompt_template import TOPIC_GENERATOR,PROMPT_GENERATOR, TRENDY_TOPIC_PROMPT, classify_trend_style, REEL_SCRIPT_GENERATOR, POST_SCRIPT_GENERATOR, CAROUSEL_IMAGE_PROMPT_GENERATOR
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 import json
@@ -109,6 +109,7 @@ def generate_topic(
     platform: str,
     date: str,
     business_id: str = None,
+    profile_data: dict = None
 
 ) -> dict:
     """
@@ -121,9 +122,30 @@ def generate_topic(
     """
     print(f"Business context: {business_context}")
     filled_prompt = TOPIC_GENERATOR
-    filled_prompt = filled_prompt.replace("{{BUSINESS_CONTEXT}}", business_context)
+    
+    # Get location data - prefer profile_data if provided, otherwise try to extract
+    city = ""
+    state = ""
+    if profile_data:
+        city = profile_data.get("location_city", "")
+        state = profile_data.get("location_state", "Gujarat")
+    elif isinstance(business_context, dict):
+        city = business_context.get("location_city", business_context.get("city", ""))
+        state = business_context.get("location_state", business_context.get("state", "Gujarat"))
+    elif business_id:
+        # Try to get from profile if business_context is a string
+        try:
+            profile_data = db.get_profile_business_data(business_id)
+            city = profile_data.get("location_city", "")
+            state = profile_data.get("location_state", "Gujarat")
+        except:
+            pass
+    
+    filled_prompt = filled_prompt.replace("{{BUSINESS_CONTEXT}}", str(business_context))
     filled_prompt = filled_prompt.replace("{{PLATFORM}}", platform)
     filled_prompt = filled_prompt.replace("{{DATE}}", date)
+    filled_prompt = filled_prompt.replace("{{CITY}}", city)
+    filled_prompt = filled_prompt.replace("{{STATE}}", state)
     filled_prompt = filled_prompt.replace("{{RECENT_TOPICS}}", str(recent_topics(business_id,platform)))
 
     try:
@@ -162,6 +184,244 @@ def embed_topic(text: str) -> np.ndarray:
     )
     
     return np.array(response.data[0].embedding, dtype=np.float32)
+
+# ============================================================
+# REEL SCRIPT GENERATOR
+# ============================================================
+
+def generate_reel_script(
+    business_context: str,
+    topic: str,
+    platform: str,
+    action: dict,
+    profile_data: dict
+) -> str:
+    """
+    Generates a human-followable reel script using Grok.
+    
+    Args:
+        business_context: Business context string
+        topic: Topic for the reel
+        platform: Social media platform
+        action: RL action dictionary containing HOOK_TYPE, TONE, etc.
+        profile_data: Business profile data dictionary
+    
+    Returns:
+        Reel script as plain text string
+    """
+    print(f"Generating reel script for topic: {topic}")
+    
+    filled_prompt = REEL_SCRIPT_GENERATOR
+    
+    # Prepare business context string
+    business_context_str = str(business_context)
+    
+    # Extract values from profile_data
+    business_name = profile_data.get("business_name", "Business")
+    industries = profile_data.get("industries", [])
+    if isinstance(industries, list):
+        industries_str = ", ".join(industries)
+    else:
+        industries_str = str(industries)
+    
+    target_audience = profile_data.get("target_audience", [])
+    if isinstance(target_audience, list):
+        target_audience_str = ", ".join(target_audience)
+    else:
+        target_audience_str = str(target_audience)
+    
+    brand_voice = profile_data.get("brand_voice", "Professional")
+    brand_tone = profile_data.get("brand_tone", "Friendly")
+    city = profile_data.get("location_city", "")
+    state = profile_data.get("location_state", "Gujarat")
+    
+    # Replace placeholders
+    filled_prompt = filled_prompt.replace("{{BUSINESS_CONTEXT}}", business_context_str)
+    filled_prompt = filled_prompt.replace("{{topic_text}}", topic)
+    filled_prompt = filled_prompt.replace("{{PLATFORM}}", platform)
+    filled_prompt = filled_prompt.replace("{{HOOK_TYPE}}", action.get("HOOK_TYPE", "question"))
+    filled_prompt = filled_prompt.replace("{{TONE}}", action.get("TONE", "friendly"))
+    filled_prompt = filled_prompt.replace("{{INFORMATION_DEPTH}}", action.get("INFORMATION_DEPTH", "balanced"))
+    filled_prompt = filled_prompt.replace("{{CREATIVITY}}", action.get("CREATIVITY", "balanced"))
+    filled_prompt = filled_prompt.replace("{{BUSINESS_NAME}}", business_name)
+    filled_prompt = filled_prompt.replace("{{INDUSTRIES}}", industries_str)
+    filled_prompt = filled_prompt.replace("{{TARGET_AUDIENCE}}", target_audience_str)
+    filled_prompt = filled_prompt.replace("{{BRAND_VOICE}}", brand_voice)
+    filled_prompt = filled_prompt.replace("{{BRAND_TONE}}", brand_tone)
+    filled_prompt = filled_prompt.replace("{{CITY}}", city)
+    filled_prompt = filled_prompt.replace("{{STATE}}", state)
+    
+    try:
+        response = call_grok(filled_prompt)
+        
+        # Grok returns plain text for reel scripts (not JSON)
+        if isinstance(response, str):
+            return response
+        elif isinstance(response, dict):
+            # If it's a dict, try to extract script content
+            return response.get("script", str(response))
+        else:
+            return str(response)
+            
+    except Exception as e:
+        print(f"Error generating reel script: {e}")
+        # Return a fallback script
+        return f"""**HOOK (0-3 seconds)**
+Show a close-up of your product or service. Display text overlay: "{topic}". Make it bold and attention-grabbing.
+
+**SCENE 1: Introduction**
+Film yourself or your product from a front angle. Show the key feature or benefit. Add text overlay: "Discover {topic}". Duration: 3-4 seconds.
+
+**SCENE 2: Main Value**
+Demonstrate the main value proposition. Use a clear camera angle. Display text: "Why it matters". Duration: 5-6 seconds.
+
+**CALL TO ACTION**
+End with text overlay: "Follow for more tips". Show your brand or logo. Duration: 2-3 seconds.
+
+**ADDITIONAL NOTES**
+- Use upbeat, energetic music
+- Target duration: 15-30 seconds
+- Keep transitions smooth and professional"""
+
+# ============================================================
+# POST SCRIPT GENERATOR
+# ============================================================
+
+def generate_post_script(
+    generated_caption: str,
+    generated_image_url: str,
+    topic: str,
+    platform: str,
+    action: dict,
+    profile_data: dict
+) -> str:
+    """
+    Generates a human-readable script explaining how to use the generated post content.
+    
+    Args:
+        generated_caption: The generated caption text
+        generated_image_url: The URL of the generated image
+        topic: Topic for the post
+        platform: Social media platform
+        action: RL action dictionary containing HOOK_TYPE, TONE, etc.
+        profile_data: Business profile data dictionary
+    
+    Returns:
+        Post usage script as plain text string
+    """
+    print(f"Generating post usage script...")
+    
+    filled_prompt = POST_SCRIPT_GENERATOR
+    
+    # Extract values from profile_data
+    business_name = profile_data.get("business_name", "Business")
+    industries = profile_data.get("industries", [])
+    if isinstance(industries, list):
+        industries_str = ", ".join(industries)
+    else:
+        industries_str = str(industries)
+    
+    target_audience = profile_data.get("target_audience", [])
+    if isinstance(target_audience, list):
+        target_audience_str = ", ".join(target_audience)
+    else:
+        target_audience_str = str(target_audience)
+    
+    brand_voice = profile_data.get("brand_voice", "Professional")
+    brand_tone = profile_data.get("brand_tone", "Friendly")
+    city = profile_data.get("location_city", "")
+    state = profile_data.get("location_state", "Gujarat")
+    
+    # Replace placeholders
+    filled_prompt = filled_prompt.replace("{{GENERATED_CAPTION}}", generated_caption)
+    filled_prompt = filled_prompt.replace("{{GENERATED_IMAGE_URL}}", generated_image_url)
+    filled_prompt = filled_prompt.replace("{{topic_text}}", topic)
+    filled_prompt = filled_prompt.replace("{{PLATFORM}}", platform)
+    filled_prompt = filled_prompt.replace("{{BUSINESS_NAME}}", business_name)
+    filled_prompt = filled_prompt.replace("{{TONE}}", action.get("TONE", "friendly"))
+    filled_prompt = filled_prompt.replace("{{CREATIVITY}}", action.get("CREATIVITY", "balanced"))
+    filled_prompt = filled_prompt.replace("{{VISUAL_STYLE}}", action.get("VISUAL_STYLE", "modern_corporate_b2b"))
+    filled_prompt = filled_prompt.replace("{{COMPOSITION_STYLE}}", action.get("COMPOSITION_STYLE", "center_focused"))
+    filled_prompt = filled_prompt.replace("{{INDUSTRIES}}", industries_str)
+    filled_prompt = filled_prompt.replace("{{BRAND_VOICE}}", brand_voice)
+    filled_prompt = filled_prompt.replace("{{CITY}}", city)
+    filled_prompt = filled_prompt.replace("{{STATE}}", state)
+    
+    # Add primary and secondary colors from profile_data
+    primary_color = profile_data.get("primary_color", "#000000")
+    secondary_color = profile_data.get("secondary_color", "#FFFFFF")
+    filled_prompt = filled_prompt.replace("{{PRIMARY_COLOR}}", primary_color)
+    filled_prompt = filled_prompt.replace("{{SECONDARY_COLOR}}", secondary_color)
+    
+    try:
+        response = call_grok(filled_prompt)
+        
+        # Grok returns plain text for post scripts (not JSON)
+        if isinstance(response, str):
+            return response
+        elif isinstance(response, dict):
+            # If it's a dict, try to extract script content
+            return response.get("script", str(response))
+        else:
+            return str(response)
+            
+    except Exception as e:
+        print(f"Error generating post script: {e}")
+        # Return a fallback image description
+        primary_color = profile_data.get("primary_color", "#000000")
+        secondary_color = profile_data.get("secondary_color", "#FFFFFF")
+        visual_style = action.get("VISUAL_STYLE", "modern_corporate_b2b")
+        composition_style = action.get("COMPOSITION_STYLE", "center_focused")
+        
+        return f"""Create an image that visually represents the topic: {topic}. Use {visual_style} visual style with {composition_style} composition. The image should use {primary_color} as the primary color and {secondary_color} as the secondary color. Include visual elements that align with the business context and topic. The image should be suitable for {platform} platform and reflect the {action.get('TONE', 'friendly')} tone. Provide step-by-step instructions on how to create this image using photography, design software, or other appropriate tools."""
+
+# ============================================================
+# CAROUSEL SCRIPT GENERATOR
+# ============================================================
+
+def generate_carousel_script(
+    generated_caption: str,
+    generated_image_urls: list,  # List of 4 image URLs
+    topic: str,
+    platform: str,
+    action: dict,
+    profile_data: dict
+) -> str:
+    """
+    Generates a human-readable script explaining how to use the generated carousel content.
+    
+    Args:
+        generated_caption: The generated caption text (for entire carousel)
+        generated_image_urls: List of 4 image URLs (one per slide)
+        topic: Topic for the carousel
+        platform: Social media platform
+        action: RL action dictionary containing HOOK_TYPE, TONE, etc.
+        profile_data: Business profile data dictionary
+    
+    Returns:
+        Carousel usage script as plain text string
+    """
+    print(f"Generating carousel usage script...")
+    
+    # Build image descriptions for each slide
+    primary_color = profile_data.get("primary_color", "#000000")
+    secondary_color = profile_data.get("secondary_color", "#FFFFFF")
+    visual_style = action.get("VISUAL_STYLE", "modern_corporate_b2b")
+    composition_style = action.get("COMPOSITION_STYLE", "center_focused")
+    
+    script = f"""**SLIDE 1 - Hook/Overview Image:**
+Create an image that grabs attention and introduces the topic: {topic}. Use {visual_style} visual style with {composition_style} composition. The image should use {primary_color} as the primary color and {secondary_color} as the secondary color. Include visual elements that create a strong first impression and make viewers want to see more. The image should align with the business context and be suitable for {platform} platform.
+
+**SLIDE 2 - Detail/Feature Image:**
+Create an image that expands on specific features or details related to {topic}. Maintain {visual_style} visual style and {composition_style} composition for consistency. Use {primary_color} and {secondary_color} color scheme. Show more information or context that builds on what was introduced in Slide 1. Keep visual consistency with Slide 1.
+
+**SLIDE 3 - Benefit/Value Image:**
+Create an image that highlights benefits and value proposition related to {topic}. Continue using {visual_style} visual style and {composition_style} composition. Maintain {primary_color} and {secondary_color} color scheme. Show why this matters to the audience and connect to the business value proposition. Ensure visual consistency with previous slides.
+
+**SLIDE 4 - Call-to-Action/Close Image:**
+Create an image that encourages action and reinforces the main message about {topic}. Use {visual_style} visual style and {composition_style} composition. Maintain {primary_color} and {secondary_color} color scheme. Create a strong closing that leaves a lasting impression and encourages viewers to take action. Ensure all 4 slides work together as a cohesive visual story."""
+    
+    return script
 
 # ============================================================
 # CONTEXT BUILDER 
@@ -213,7 +473,11 @@ def generate_prompts(
     hook_type = action.get("HOOK_TYPE", "")
 
     # 3. Merge inputs + RL action for placeholders
-    merged = {**inputs, **action}
+    # Extract location data from profile_data
+    city = profile_data.get("location_city", "")
+    state = profile_data.get("location_state", "Gujarat")
+    
+    merged = {**inputs, **action, "CITY": city, "STATE": state}
 
     # =====================================================
     # TRENDY -> GROK
@@ -232,7 +496,9 @@ def generate_prompts(
             "BUSINESS_AESTHETIC": profile_data["brand_voice"],
             "BUSINESS_TYPES": profile_data["business_types"],
             "INDUSTRIES": profile_data["industries"],
-            "topic_text": topic_text
+            "topic_text": topic_text,
+            "CITY": city,
+            "STATE": state
         }
 
         for k, v in merged_with_style.items():
@@ -276,7 +542,9 @@ def generate_prompts(
     "BUSINESS_AESTHETIC": profile_data["brand_voice"],
     "BUSINESS_TYPES": profile_data["business_types"],
     "INDUSTRIES": profile_data["industries"],
-    "topic_text": topic_text
+    "topic_text": topic_text,
+    "CITY": city,
+    "STATE": state
 }
 
     for k, v in merged.items():

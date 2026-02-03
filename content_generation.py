@@ -315,6 +315,69 @@ class ContentGenerator:
                 "status": "failed"
             }
 
+    def generate_carousel_content(
+        self,
+        caption_prompt: str,
+        image_prompts: list,  # List of 4 image prompts
+        business_context: dict = None,
+        logo_url: str = None,
+        business_id: str = None,
+        num_slides: int = 4
+    ) -> Dict[str, Any]:
+        """
+        Generate carousel content: 4 images + 1 caption.
+        
+        Args:
+            caption_prompt: Prompt for caption generation (single caption for entire carousel)
+            image_prompts: List of 4 image prompts (one per slide)
+            business_context: Business profile data dictionary
+            logo_url: URL of business logo to overlay
+            business_id: Business ID for logo fetching
+            num_slides: Number of slides (default 4)
+        
+        Returns:
+            Dict with 'caption', 'image_urls' (list of 4 URLs), and 'status'
+        """
+        try:
+            # Generate single caption for entire carousel
+            caption = self.generate_caption(caption_prompt)
+            print(f"Generated carousel caption ({len(caption)} chars)")
+            
+            # Generate 4 images
+            image_urls = []
+            
+            for i, image_prompt in enumerate(image_prompts, start=1):
+                print(f"Generating slide {i}/4...")
+                
+                # Format and append structured business context to image prompt if provided
+                slide_prompt = image_prompt
+                if business_context:
+                    formatted_context = format_business_context(business_context)
+                    slide_prompt += f"\n\nBusiness Context: \n\n{formatted_context}"
+                    if i == 1:  # Only print once
+                        print(f"Appended structured business context to image prompts")
+                
+                # Generate image for this slide
+                slide_image_url = self.generate_image(slide_prompt, logo_url, business_id)
+                image_urls.append(slide_image_url)
+                print(f"  ✅ Slide {i} generated: {slide_image_url[:60]}...")
+            
+            if len(image_urls) != num_slides:
+                raise ValueError(f"Expected {num_slides} images, got {len(image_urls)}")
+            
+            return {
+                "caption": caption,
+                "image_urls": image_urls,
+                "status": "success"
+            }
+            
+        except Exception as e:
+            print(f"Error generating carousel content: {e}")
+            return {
+                "error": str(e),
+                "status": "failed"
+            }
+
 
 def format_business_context(profile_data: dict) -> str:
     """
@@ -382,6 +445,12 @@ def generate_content(caption_prompt: str, image_prompt: str, business_context: d
     """Generate both caption and image from their prompts with optional logo overlay."""
     generator = ContentGenerator()
     return generator.generate_content(caption_prompt, image_prompt, business_context, logo_url, business_id)
+
+
+def generate_carousel_content(caption_prompt: str, image_prompts: list, business_context: dict = None, logo_url: str = None, business_id: str = None, num_slides: int = 4) -> Dict[str, Any]:
+    """Generate carousel content: 4 images + 1 caption."""
+    generator = ContentGenerator()
+    return generator.generate_carousel_content(caption_prompt, image_prompts, business_context, logo_url, business_id, num_slides)
 
 
 def test_logo_overlay():

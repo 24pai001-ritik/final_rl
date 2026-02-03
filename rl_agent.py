@@ -111,6 +111,12 @@ ACTION_SPACE = {
         "negative_space_heavy",
         "full_bleed_edge_to_edge",
         "collage_style"
+    ],
+
+    "CONTENT_TYPE": [
+        "post",
+        "reel",
+        "carousel"
     ]
 
 }

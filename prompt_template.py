@@ -11,7 +11,9 @@ Platform: {{PLATFORM}}
 
 Current date: {{DATE}}
 
-Task: Suggest ONLY one timely(within 7 days of the current date) and relevant post topic for the specified platform.
+Location: {{CITY}}, {{STATE}}
+
+Task: Suggest ONLY one timely(within 7 days of the current date) and relevant post topic for the specified platform. Consider the business location ({{CITY}}, {{STATE}}) when suggesting topics - make it relevant to local audience, local events, or regional context when appropriate.
 
 Output strictly in this format and nothing else:
 
@@ -260,6 +262,8 @@ CAPTION REQUIREMENTS (STRICT)
 The caption_prompt MUST instruct the model to:
 
 - Write a caption aligned with {{BUSINESS_CONTEXT}}, {{BUSINESS_AESTHETIC}}, and {{topic_text}}
+- Consider the business location ({{CITY}}, {{STATE}}) - make content relevant to local audience when appropriate
+- Include location-specific hashtags or mentions if relevant (e.g., #{{CITY}}Movies, #{{STATE}}Business) - only if city/state are provided and relevant
 - Follow all creative controls strictly
 - Include relevant, platform-appropriate hashtags
 - STRICTLY include the hashtag: #workvillage
@@ -280,6 +284,7 @@ The image_prompt MUST instruct the model to:
   • reflect the industry, target audience, and business domain
   • ensure the visual would clearly make sense ONLY for this business
   • avoid generic visuals that could fit any brand
+  • consider the business location ({{CITY}}, {{STATE}}) - incorporate local/regional visual elements when relevant
 - Use {{BUSINESS_AESTHETIC}} to guide colors, mood, and visual language
 - EXPLICITLY incorporate the Primary Color and Secondary Color from {{BUSINESS_CONTEXT}} in the visual design:
   • Use Primary Color as the dominant color in key visual elements
@@ -418,6 +423,8 @@ CAPTION REQUIREMENTS (STRICT)
 The caption_prompt MUST instruct the model to:
 
 - Write a caption aligned with {{BUSINESS_CONTEXT}}, {{BUSINESS_AESTHETIC}}, and {{topic_text}}
+- Consider the business location ({{CITY}}, {{STATE}}) - make content relevant to local audience when appropriate
+- Include location-specific hashtags or mentions if relevant (e.g., #{{CITY}}Movies, #{{STATE}}Business) - only if city/state are provided and relevant
 - Follow all creative controls strictly
 - Follow {selected_style} exactly
 - Include relevant, platform-appropriate hashtags
@@ -439,6 +446,7 @@ The image_prompt MUST instruct the model to:
   • industry relevance
   • brand appropriateness
   • compliance with the business domain
+  • consider the business location ({{CITY}}, {{STATE}}) - incorporate local/regional visual elements when relevant
 - Use {{BUSINESS_AESTHETIC}} to guide colors, mood, and visual language
 - EXPLICITLY incorporate the Primary Color and Secondary Color from {{BUSINESS_CONTEXT}} in the visual design:
   • Use Primary Color as the dominant color in key visual elements
@@ -624,3 +632,327 @@ def classify_trend_style(business_types, industries):
     # 🧠 SAFE DEFAULT
     # -------------------------------------------------
     return "Amul-style Intelligent Topical"
+
+
+REEL_SCRIPT_GENERATOR = """You are an expert social media reel script writer. Your task is to create a clear, simple, human-followable script for creating a reel video.
+
+Business Context:
+{{BUSINESS_CONTEXT}}
+
+Topic: {{topic_text}}
+Platform: {{PLATFORM}}
+Hook Type: {{HOOK_TYPE}}
+Tone: {{TONE}}
+Information Depth: {{INFORMATION_DEPTH}}
+Creativity: {{CREATIVITY}}
+
+Business Details:
+- Business Name: {{BUSINESS_NAME}}
+- Industry: {{INDUSTRIES}}
+- Location: {{CITY}}, {{STATE}}
+- Target Audience: {{TARGET_AUDIENCE}}
+- Brand Voice: {{BRAND_VOICE}}
+- Brand Tone: {{BRAND_TONE}}
+
+────────────────────────────────
+SCRIPT REQUIREMENTS
+────────────────────────────────
+
+Create a reel script that is:
+1. HUMAN-FOLLOWABLE: Written in clear, simple English that anyone can understand
+2. STEP-BY-STEP: Break down the reel into clear sections with specific instructions
+3. VISUAL: Describe what should be shown on screen at each moment
+4. ACTIONABLE: Include specific actions, camera movements, and text overlay suggestions
+5. ENGAGING: Follow the hook type and tone to create compelling content
+6. BRAND-ALIGNED: Reflect the business context, brand voice, and target audience
+
+────────────────────────────────
+SCRIPT STRUCTURE
+────────────────────────────────
+
+Your script MUST include these sections:
+
+1. HOOK (First 3 seconds)
+   - Describe exactly what should appear on screen
+   - What text overlay (if any) should be shown
+   - What action or visual should grab attention
+   - How to align with the selected hook type
+
+2. MAIN CONTENT (Middle section)
+   - Break into 2-4 clear scenes or moments
+   - For each scene, describe:
+     * What should be shown visually
+     * What text overlay to add (if any)
+     * What action or demonstration to perform
+     * How long each scene should be (suggested duration)
+   - Ensure content delivers value related to the topic
+
+3. TRANSITIONS
+   - Describe how to move between scenes
+   - Suggest transition effects (if applicable)
+   - Keep transitions smooth and professional
+
+4. CALL TO ACTION (Final 2-3 seconds)
+   - What final message or text to show
+   - What action you want viewers to take
+   - How to end the reel effectively
+
+5. ADDITIONAL NOTES (Optional)
+   - Music style suggestions
+   - Overall duration target (typically 15-60 seconds)
+   - Color scheme suggestions (if relevant)
+   - Any special effects or editing tips
+
+────────────────────────────────
+WRITING STYLE
+────────────────────────────────
+
+- Use simple, direct language
+- Write in second person ("You should...", "Show...", "Display...")
+- Be specific about visual elements
+- Avoid technical jargon
+- Make instructions easy to follow step-by-step
+- Use bullet points or numbered lists for clarity
+
+────────────────────────────────
+CONTENT GUIDELINES
+────────────────────────────────
+
+- The script must align with the business context and brand voice
+- Follow the selected tone ({{TONE}}) throughout
+- Use the hook type ({{HOOK_TYPE}}) effectively in the opening
+- Match the information depth ({{INFORMATION_DEPTH}}) - don't make it too complex or too simple
+- Apply creativity level ({{CREATIVITY}}) appropriately
+- Ensure the script is relevant to the topic: {{topic_text}}
+- Consider the business location ({{CITY}}, {{STATE}}) - make content relevant to local audience, local events, or regional context when appropriate
+- Make it suitable for {{PLATFORM}} platform
+- Do NOT include political references, symbols, or themes
+- Do NOT include negative, harmful, or offensive content
+- Keep it brand-safe and professional
+
+────────────────────────────────
+OUTPUT FORMAT
+────────────────────────────────
+
+Output the script as plain text with clear section headers. Use this structure:
+
+**HOOK (0-3 seconds)**
+[Clear instructions for the opening]
+
+**SCENE 1: [Scene Name]**
+[Detailed visual and action instructions]
+
+**SCENE 2: [Scene Name]**
+[Detailed visual and action instructions]
+
+[Continue with additional scenes as needed]
+
+**TRANSITIONS**
+[How to move between scenes]
+
+**CALL TO ACTION (Final 2-3 seconds)**
+[Final message and action instructions]
+
+**ADDITIONAL NOTES**
+[Music, duration, color, or other suggestions]
+
+────────────────────────────────
+EXAMPLE STRUCTURE (for reference)
+────────────────────────────────
+
+**HOOK (0-3 seconds)**
+Show a close-up of [specific visual]. Display text overlay: "[Hook text]". Make it bold and attention-grabbing.
+
+**SCENE 1: Introduction**
+Film yourself or a product from [angle]. Show [specific action]. Add text overlay: "[Key point]". Duration: 3-4 seconds.
+
+**SCENE 2: Main Value**
+Demonstrate [specific action or concept]. Use [camera angle]. Display text: "[Main message]". Duration: 5-6 seconds.
+
+**CALL TO ACTION**
+End with text overlay: "[CTA text]". Show [final visual]. Duration: 2-3 seconds.
+
+────────────────────────────────
+
+Now create the reel script following all the requirements above. Make it clear, actionable, and easy for a human to follow to create the reel video."""
+
+
+POST_SCRIPT_GENERATOR = """You are an expert image creation guide. Your task is to create a clear, simple, human-readable description of how to CREATE the image for this post.
+
+Generated Caption:
+{{GENERATED_CAPTION}}
+
+Topic: {{topic_text}}
+Platform: {{PLATFORM}}
+Business: {{BUSINESS_NAME}}
+Visual Style: {{VISUAL_STYLE}}
+Composition Style: {{COMPOSITION_STYLE}}
+Tone: {{TONE}}
+Creativity: {{CREATIVITY}}
+
+Business Details:
+- Industry: {{INDUSTRIES}}
+- Brand Voice: {{BRAND_VOICE}}
+- Location: {{CITY}}, {{STATE}}
+- Primary Color: {{PRIMARY_COLOR}}
+- Secondary Color: {{SECONDARY_COLOR}}
+
+────────────────────────────────
+REQUIREMENTS
+────────────────────────────────
+
+Create ONLY an image description that explains:
+- How the user can CREATE or MAKE this image
+- What visual elements should be included
+- What the image should look like
+- Step-by-step instructions for creating the image
+- What tools or methods can be used (photography, design software, etc.)
+
+────────────────────────────────
+WHAT TO INCLUDE
+────────────────────────────────
+
+The description should explain:
+1. Main visual concept and subject matter
+2. Color scheme and brand colors to use
+3. Composition and layout (how to arrange elements)
+4. Visual style details ({{VISUAL_STYLE}})
+5. Specific elements to include (based on caption and topic)
+6. How to create it (photography tips, design instructions, etc.)
+7. Location context ({{CITY}}, {{STATE}}) if relevant
+
+────────────────────────────────
+WHAT NOT TO INCLUDE
+────────────────────────────────
+
+- Do NOT include caption instructions
+- Do NOT include posting instructions
+- Do NOT include engagement tips
+- Do NOT include overview or summary sections
+- Do NOT explain how to use the generated image
+- ONLY focus on how to CREATE/MAKE the image
+
+────────────────────────────────
+WRITING STYLE
+────────────────────────────────
+
+- Use simple, direct language
+- Write in second person ("Create an image that...", "Include...", "Use...")
+- Be specific about visual elements
+- Provide actionable creation instructions
+- Focus on the image creation process
+- Make it easy for someone to create the image based on your description
+
+────────────────────────────────
+OUTPUT FORMAT
+────────────────────────────────
+
+Output ONLY the image description as plain text. No section headers, no extra formatting. Just a clear description of how to create the image.
+
+Example format:
+Create an image that shows [main subject]. Use [colors] as the primary color scheme. Include [specific elements]. Arrange elements using [composition style]. The image should have a [visual style] feel. [Additional creation instructions].
+
+────────────────────────────────
+
+Now create ONLY the image description - how the user can create/make this image. Nothing else."""
+
+
+# ============================================================
+# CAROUSEL IMAGE PROMPT GENERATOR
+# ============================================================
+
+CAROUSEL_IMAGE_PROMPT_GENERATOR = """You are generating prompts for a 4-slide carousel post.
+
+Business Context: {{BUSINESS_CONTEXT}}
+Topic: {{topic_text}}
+Platform: {{PLATFORM}}
+Location: {{CITY}}, {{STATE}}
+Visual Style: {{VISUAL_STYLE}}
+Composition Style: {{COMPOSITION_STYLE}}
+Tone: {{TONE}}
+Creativity: {{CREATIVITY}}
+
+────────────────────────────────
+REQUIREMENTS
+────────────────────────────────
+
+Generate 4 distinct but visually consistent image prompts for a carousel post.
+
+Each slide should:
+1. Maintain visual consistency (same style, colors, branding from {{BUSINESS_CONTEXT}})
+2. Tell part of a cohesive story
+3. Work together to convey the complete message
+4. Be optimized for {{PLATFORM}} platform
+
+────────────────────────────────
+SLIDE STRUCTURE
+────────────────────────────────
+
+**Slide 1 (Hook/Overview):**
+- First impression that grabs attention
+- Overview of the main topic/theme
+- Should make viewers want to swipe
+- Use {{HOOK_TYPE}} to create engagement
+
+**Slide 2 (Detail/Feature):**
+- Dive deeper into specific features or details
+- Expand on the topic introduced in Slide 1
+- Show more information or context
+- Match {{INFORMATION_DEPTH}} level
+
+**Slide 3 (Benefit/Value):**
+- Highlight benefits, value proposition, or outcomes
+- Show why this matters to the audience
+- Connect to {{BUSINESS_CONTEXT}} unique value proposition
+- Use {{TONE}} appropriately
+
+**Slide 4 (Call-to-Action/Close):**
+- Strong closing that encourages action
+- Clear next steps or invitation
+- Reinforce the main message
+- Leave lasting impression
+
+────────────────────────────────
+VISUAL CONSISTENCY RULES
+────────────────────────────────
+
+- All 4 slides must use {{VISUAL_STYLE}} consistently
+- Maintain {{COMPOSITION_STYLE}} across all slides
+- Use primary and secondary colors from {{BUSINESS_CONTEXT}}
+- Keep brand identity consistent (logo placement, fonts, etc.)
+- Ensure smooth visual flow when swiping through slides
+- Consider location ({{CITY}}, {{STATE}}) in visual elements when relevant
+
+────────────────────────────────
+OUTPUT FORMAT
+────────────────────────────────
+
+Return ONLY a valid JSON object with this exact structure:
+
+{
+  "slide_1_prompt": "[Detailed prompt for first slide - hook/overview]",
+  "slide_2_prompt": "[Detailed prompt for second slide - detail/feature]",
+  "slide_3_prompt": "[Detailed prompt for third slide - benefit/value]",
+  "slide_4_prompt": "[Detailed prompt for fourth slide - CTA/close]"
+}
+
+Each prompt should:
+- Be detailed and specific (200-300 words)
+- Reference the slide number and purpose
+- Include visual style, composition, and tone instructions
+- Be self-contained (can generate image independently)
+- Maintain consistency with other slides
+- Consider business context and location
+
+────────────────────────────────
+IMPORTANT NOTES
+────────────────────────────────
+
+- Do NOT include the caption text in the image prompts
+- Do NOT repeat the same visual concept across slides
+- Ensure each slide adds unique value to the story
+- Make prompts specific enough for consistent visual generation
+- Consider {{CREATIVITY}} level when crafting prompts
+- All slides should work together as a cohesive narrative
+- Do NOT include political symbols, themes, metaphors, or indirect references of any kind
+- Do NOT include negative, harmful, offensive content"""

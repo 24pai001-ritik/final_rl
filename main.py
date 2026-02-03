@@ -40,9 +40,10 @@ IST = pytz.timezone("Asia/Kolkata")
 
 import db
 # from rl_agent import update_rl
-from generate import generate_prompts,embed_topic,generate_topic
+from generate import generate_prompts,embed_topic,generate_topic,generate_reel_script,generate_post_script,generate_carousel_script
 #from job_queue import queue_reward_calculation_job
-from content_generation import generate_content
+from content_generation import generate_content, generate_carousel_content
+from prompt_template import CAROUSEL_IMAGE_PROMPT_GENERATOR
 
 # Add imports
 import time
@@ -110,8 +111,7 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
 
     print(f"\nStarting new post cycle for {platform} at {time_bucket}")
     
-    date = datetime.now(IST).date().isoformat()
-
+    date = (datetime.now(IST) + timedelta(days=4)).date().isoformat()
 
     # ---------- 1. BUSINESS CONTEXT ----------
     # Get business embedding and profile data from profiles table
@@ -126,7 +126,8 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
     business_context=str(profile_data),
     platform=platform,
     date=date,
-    business_id=BUSINESS_ID)
+    business_id=BUSINESS_ID,
+    profile_data=profile_data)
     
     topic_text = topic_data["topic"]
 
@@ -171,49 +172,218 @@ def run_one_post(BUSINESS_ID, platform, time_bucket=None):
         action=action
     )
 
-    # ---------- 4. STORE POST CONTENT ----------
-    # Extract prompts based on mode (handle both trendy and standard modes)
-    image_prompt = result.get("image_prompt",
-        f"Create an image with {action['VISUAL_STYLE']} style, {action['TONE']} tone, {action['CREATIVITY']} creativity level.The topic is {topic_text}. Make it engaging for {platform}.Do not include caption in the image  directly.just learn from the caption and generate the image.")
+    # ---------- 4. CHECK CONTENT TYPE AND BRANCH ----------
+    content_type = action.get("CONTENT_TYPE", "post")
+    print(f"Content type selected: {content_type}")
 
-    caption_prompt = result.get("caption_prompt",
-        f"Write a {action['TONE']} caption in {action['INFORMATION_DEPTH']} length with {action['CREATIVITY']} creativity level. The topic is {topic_text}. Make it suitable for {platform}.")
-
-    print("Generating caption and image content...")
-
-    # Extract logo URL from business profile if available
-    logo_url = profile_data.get("logo_url")
-    if logo_url:
-        print(f" Will overlay logo from: {logo_url}")
-
-    content_result = generate_content(caption_prompt, image_prompt, profile_data, logo_url, business_id)
-
-    if content_result["status"] == "success":
-        generated_caption = content_result["caption"]
-        generated_image_url = content_result["image_url"]
-
-
-        print(" Content generated successfully and stored")
-        print(f" Caption: {generated_caption[:100]}...")
-
+    if content_type == "reel":
+        # ---------- REEL FLOW: Generate reel script ----------
+        print("Generating reel script...")
+        
+        reel_script = generate_reel_script(
+            business_context=str(profile_data),
+            topic=topic_text,
+            platform=platform,
+            action=action,
+            profile_data=profile_data
+        )
+        
+        print("Reel script generated successfully")
+        print(f"Script preview: {reel_script[:200]}...")
+        
+        # Store reel script in database
+        db.insert_reel_script(
+            post_id=post_id,
+            action_id=action_id,
+            platform=platform,
+            business_id=BUSINESS_ID,
+            topic=topic_text,
+            script_content=reel_script
+        )
+        
+        print("Reel script stored in database")
+        
+    elif content_type == "carousel":
+        # ---------- CAROUSEL FLOW: Generate 4 images + 1 caption ----------
+        print("Generating carousel content (4 slides + caption)...")
+        
+        # Extract prompts
+        image_prompt = result.get("image_prompt",
+            f"Create an image with {action['VISUAL_STYLE']} style, {action['TONE']} tone, {action['CREATIVITY']} creativity level. The topic is {topic_text}. Make it engaging for {platform}.")
+        
+        caption_prompt = result.get("caption_prompt",
+            f"Write a {action['TONE']} caption in {action['INFORMATION_DEPTH']} length with {action['CREATIVITY']} creativity level. The topic is {topic_text}. Make it suitable for {platform} carousel post.")
+        
+        # Generate 4 distinct image prompts for carousel slides
+        print("Generating carousel image prompts...")
+        carousel_prompt_template = CAROUSEL_IMAGE_PROMPT_GENERATOR
+        
+        # Fill template with values
+        business_name = profile_data.get("business_name", "Business")
+        industries = profile_data.get("industries", [])
+        industries_str = ", ".join(industries) if isinstance(industries, list) else str(industries)
+        city = profile_data.get("location_city", "")
+        state = profile_data.get("location_state", "Gujarat")
+        
+        filled_carousel_prompt = carousel_prompt_template.replace("{{BUSINESS_CONTEXT}}", str(profile_data))
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{topic_text}}", topic_text)
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{PLATFORM}}", platform)
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{CITY}}", city)
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{STATE}}", state)
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{VISUAL_STYLE}}", action.get("VISUAL_STYLE", "modern_corporate_b2b"))
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{COMPOSITION_STYLE}}", action.get("COMPOSITION_STYLE", "center_focused"))
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{TONE}}", action.get("TONE", "friendly"))
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{CREATIVITY}}", action.get("CREATIVITY", "balanced"))
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{HOOK_TYPE}}", action.get("HOOK_TYPE", "question"))
+        filled_carousel_prompt = filled_carousel_prompt.replace("{{INFORMATION_DEPTH}}", action.get("INFORMATION_DEPTH", "balanced"))
+        
+        # Call Grok to generate 4 image prompts
+        from generate import call_grok
+        try:
+            carousel_prompts_response = call_grok(filled_carousel_prompt)
+            
+            # Parse JSON response
+            if isinstance(carousel_prompts_response, dict):
+                carousel_image_prompts = [
+                    carousel_prompts_response.get("slide_1_prompt", image_prompt),
+                    carousel_prompts_response.get("slide_2_prompt", image_prompt),
+                    carousel_prompts_response.get("slide_3_prompt", image_prompt),
+                    carousel_prompts_response.get("slide_4_prompt", image_prompt)
+                ]
+            else:
+                # Fallback: use base prompt with variations
+                print("⚠️  Could not parse carousel prompts, using base prompt with variations")
+                carousel_image_prompts = [
+                    f"{image_prompt} This is slide 1 of 4: Hook/Overview. Create an attention-grabbing first image.",
+                    f"{image_prompt} This is slide 2 of 4: Detail/Feature. Expand on specific details.",
+                    f"{image_prompt} This is slide 3 of 4: Benefit/Value. Highlight benefits and value.",
+                    f"{image_prompt} This is slide 4 of 4: Call-to-Action/Close. Create a strong closing image."
+                ]
+        except Exception as e:
+            print(f"⚠️  Error generating carousel prompts: {e}, using fallback")
+            carousel_image_prompts = [
+                f"{image_prompt} Slide 1: Hook/Overview",
+                f"{image_prompt} Slide 2: Detail/Feature",
+                f"{image_prompt} Slide 3: Benefit/Value",
+                f"{image_prompt} Slide 4: Call-to-Action"
+            ]
+        
+        print(f"Generated {len(carousel_image_prompts)} carousel image prompts")
+        
+        # Extract logo URL
+        logo_url = profile_data.get("logo_url")
+        if logo_url:
+            print(f" Will overlay logo on all slides from: {logo_url}")
+        
+        # Generate carousel content (4 images + 1 caption)
+        carousel_result = generate_carousel_content(
+            caption_prompt=caption_prompt,
+            image_prompts=carousel_image_prompts,
+            business_context=profile_data,
+            logo_url=logo_url,
+            business_id=BUSINESS_ID
+        )
+        
+        if carousel_result["status"] == "success":
+            generated_caption = carousel_result["caption"]
+            generated_image_urls = carousel_result["image_urls"]
+            
+            print(" Carousel content generated successfully")
+            print(f" Caption: {generated_caption[:100]}...")
+            print(f" Generated {len(generated_image_urls)} slides")
+            
+            # Generate carousel usage script
+            print(" Generating carousel usage script...")
+            carousel_script = generate_carousel_script(
+                generated_caption=generated_caption,
+                generated_image_urls=generated_image_urls,
+                topic=topic_text,
+                platform=platform,
+                action=action,
+                profile_data=profile_data
+            )
+            print(" Carousel script generated successfully")
+            print(f" Script preview: {carousel_script[:200]}...")
+            
+            # Store in post_contents table
+            db.insert_post_content(
+                post_id=post_id,
+                action_id=action_id,
+                platform=platform,
+                business_id=BUSINESS_ID,
+                topic=topic_text,
+                image_prompt=image_prompt,  # Base prompt
+                caption_prompt=caption_prompt,
+                generated_caption=generated_caption,
+                generated_image_url=None,  # Not used for carousel
+                post_script=carousel_script,
+                carousel_image_urls=generated_image_urls,  # 4 image URLs
+                content_type=content_type
+            )
+            print(" Carousel content stored in database")
+        else:
+            error_msg = f"Carousel generation failed: {carousel_result.get('error', 'Unknown error')}"
+            print(f" {error_msg}")
+            raise RuntimeError(error_msg)
+        
     else:
-        error_msg = f"Content generation failed: {content_result['error']}"
-        print(f" {error_msg}")
-        raise RuntimeError(error_msg)
+        # ---------- POST FLOW: Generate image and caption (existing flow) ----------
+        # Extract prompts based on mode (handle both trendy and standard modes)
+        image_prompt = result.get("image_prompt",
+            f"Create an image with {action['VISUAL_STYLE']} style, {action['TONE']} tone, {action['CREATIVITY']} creativity level.The topic is {topic_text}. Make it engaging for {platform}.Do not include caption in the image  directly.just learn from the caption and generate the image.")
 
-    db.insert_post_content(
-        post_id=post_id,
-        action_id=action_id,
-        platform=platform,
-        business_id=BUSINESS_ID,
-        topic=topic_text,
-        # business_context= profile_data["business_description"],
-        # business_aesthetic=profile_data["brand_voice"],
-        image_prompt=image_prompt,
-        caption_prompt=caption_prompt,
-        generated_caption=generated_caption,
-        generated_image_url=generated_image_url
-    )
+        caption_prompt = result.get("caption_prompt",
+            f"Write a {action['TONE']} caption in {action['INFORMATION_DEPTH']} length with {action['CREATIVITY']} creativity level. The topic is {topic_text}. Make it suitable for {platform}.")
+
+        print("Generating caption and image content...")
+
+        # Extract logo URL from business profile if available
+        logo_url = profile_data.get("logo_url")
+        if logo_url:
+            print(f" Will overlay logo from: {logo_url}")
+
+        content_result = generate_content(caption_prompt, image_prompt, profile_data, logo_url, BUSINESS_ID)
+
+        if content_result["status"] == "success":
+            generated_caption = content_result["caption"]
+            generated_image_url = content_result["image_url"]
+
+            print(" Content generated successfully")
+            print(f" Caption: {generated_caption[:100]}...")
+            
+            # Generate human-readable post script
+            print(" Generating post usage script...")
+            post_script = generate_post_script(
+                generated_caption=generated_caption,
+                generated_image_url=generated_image_url,
+                topic=topic_text,
+                platform=platform,
+                action=action,
+                profile_data=profile_data
+            )
+            print(" Post script generated successfully")
+            print(f" Script preview: {post_script[:200]}...")
+
+        else:
+            error_msg = f"Content generation failed: {content_result['error']}"
+            print(f" {error_msg}")
+            raise RuntimeError(error_msg)
+
+        db.insert_post_content(
+            post_id=post_id,
+            action_id=action_id,
+            platform=platform,
+            business_id=BUSINESS_ID,
+            topic=topic_text,
+            # business_context= profile_data["business_description"],
+            # business_aesthetic=profile_data["brand_voice"],
+            image_prompt=image_prompt,
+            caption_prompt=caption_prompt,
+            generated_caption=generated_caption,
+            generated_image_url=generated_image_url,
+            post_script=post_script,
+            content_type=content_type
+        )
 
     # ---------- 5. QUEUE FOR SCHEDULING ----------
 

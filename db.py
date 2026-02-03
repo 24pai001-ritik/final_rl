@@ -197,7 +197,10 @@ def insert_post_content(
     image_prompt,
     caption_prompt,
     generated_caption,
-    generated_image_url
+    generated_image_url=None,
+    post_script=None,
+    carousel_image_urls=None,
+    content_type=None
 ):
     try:
         # Get scheduling preferences for the business
@@ -213,10 +216,10 @@ def insert_post_content(
         }
 
         # Get today's date and scheduled time
-        post_date = datetime.now(IST).date().isoformat()
+        post_date = (datetime.now(IST) + timedelta(days=4)).date().isoformat()
         post_time = time_mapping.get(time_bucket, "18:30:00")  # Default to evening
 
-        supabase.table("post_contents").insert({
+        insert_data = {
             "post_id": post_id,
             "action_id": action_id,
             "platform": platform,
@@ -225,11 +228,37 @@ def insert_post_content(
             "image_prompt": image_prompt,
             "caption_prompt": caption_prompt,
             "generated_caption": generated_caption,
-            "generated_image_url": generated_image_url,
             "post_date": post_date,
             "post_time": post_time
-
-        }).execute()
+        }
+        
+        # Handle image URL(s)
+        if carousel_image_urls:
+            # Carousel: store array of image URLs
+            insert_data["carousel_image_urls"] = carousel_image_urls
+            # Optionally set first slide as generated_image_url for backward compatibility
+            if generated_image_url is None and len(carousel_image_urls) > 0:
+                insert_data["generated_image_url"] = carousel_image_urls[0]
+        else:
+            # Single image post: store single URL
+            if generated_image_url:
+                insert_data["generated_image_url"] = generated_image_url
+        
+        # Add post_script if provided
+        if post_script:
+            insert_data["post_script"] = post_script
+        
+        # Set content_type based on what's provided
+        if content_type:
+            insert_data["content_type"] = content_type
+        elif carousel_image_urls:
+            # If carousel_image_urls is provided, it's a carousel
+            insert_data["content_type"] = "carousel"
+        else:
+            # Default to "post" for single image posts
+            insert_data["content_type"] = "post"
+        
+        supabase.table("post_contents").insert(insert_data).execute()
     except Exception as e:
         print(f"Error inserting post content for post_id {post_id}: {e}")
         raise
@@ -250,6 +279,37 @@ def mark_post_as_posted(post_id, media_id=None):
         print(f"✅ Marked post {post_id} as posted")
     except Exception as e:
         print(f"❌ Error marking post {post_id} as posted: {e}")
+        raise
+
+
+def insert_reel_script(post_id, action_id, platform, business_id, topic, script_content):
+    """
+    Insert reel script into reel_scripts table.
+    
+    Args:
+        post_id: Unique post identifier
+        action_id: Reference to rl_actions record
+        platform: Social media platform
+        business_id: Business/profile ID
+        topic: Topic for the reel
+        script_content: The generated reel script text
+    
+    Returns:
+        None (raises exception on error)
+    """
+    try:
+        supabase.table("reel_scripts").insert({
+            "post_id": post_id,
+            "action_id": action_id,
+            "platform": platform,
+            "business_id": business_id,
+            "topic": topic,
+            "script_content": script_content,
+            "status": "generated"
+        }).execute()
+        print(f"✅ Reel script inserted successfully for post_id {post_id}")
+    except Exception as e:
+        print(f"❌ Error inserting reel script for post_id {post_id}: {e}")
         raise
 
 
@@ -380,6 +440,7 @@ def insert_action(post_id, platform, context, action):
             "creativity": action.get("CREATIVITY"),
             "composition_style": action.get("COMPOSITION_STYLE"),
             "visual_style": action.get("VISUAL_STYLE"),
+            "content_type": action.get("CONTENT_TYPE"),  # New: post or reel
             "time_bucket": context.get("time_bucket"),
             "topic": None,  # Will be set from main.py
             "business_id": None  # Will be set from main.py
@@ -535,6 +596,9 @@ def get_profile_business_data(profile_id):
             primary_color,
             secondary_color,
             location_state,
+            location_city,
+            city,
+            state,
             logo_url
             """
         ).eq("id", profile_id).execute()
@@ -561,7 +625,8 @@ def get_profile_business_data(profile_id):
                 # Visual & geo context
                 "primary_color": p.get("primary_color") or "#000000",
                 "secondary_color": p.get("secondary_color") or "#FFFFFF",
-                "location_state": p.get("location_state") or "Gujarat",
+                "location_state": p.get("location_state") or p.get("state") or "Gujarat",
+                "location_city": p.get("location_city") or p.get("city") or "",
                 "logo_url": p.get("logo_url") or None
             }
 
@@ -581,7 +646,8 @@ def get_profile_business_data(profile_id):
         "customer_pain_points": "No pain points currently",
         "primary_color": "#000000",
         "secondary_color": "#FFFFFF",
-        "location_state": "Gujarat"
+        "location_state": "Gujarat",
+        "location_city": ""
     }
 
 
@@ -630,10 +696,29 @@ def get_all_profile_ids():
 
 def should_create_post_today(profile_id) -> bool:
     """
-    Returns True - we now post every day for all businesses
+    Checks if a post has already been created for today for the given profile.
+    Returns True if no post exists for today, False otherwise.
     """
-    return True
-
+    try:
+        current_date = datetime.now(IST).date().isoformat()
+        
+        # Query post_contents for any post by this business on this date
+        res = supabase.table("post_contents") \
+            .select("post_id") \
+            .eq("business_id", profile_id) \
+            .eq("post_date", current_date) \
+            .execute()
+            
+        if res.data and len(res.data) > 0:
+            return False  # Already posted today
+            
+        return True  # No post yet today
+        
+    except Exception as e:
+        print(f"Error checking daily eligibility for {profile_id}: {e}")
+        # Default to True to avoid missing posts on DB error, 
+        # but in production you might prefer False to be safe.
+        return True
 
 def get_post_metrics(post_id, platform):
     """Fetch real metrics for a post from database"""
